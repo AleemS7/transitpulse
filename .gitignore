@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.python_packages/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+local.settings.json
+.databrickscfg
+
+# Databricks
+.databricks/
+
+# Local collector output
+.landing-local/
+.deadletter/
+
+# Azure Functions
+.azurite/
+__azurite_db*.json
+__blobstorage__/
+__queuestorage__/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
