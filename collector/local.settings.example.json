@@ -1,0 +1,11 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "TP_RAIL_API_KEY": "<rail api key>",
+    "TP_DATABRICKS_HOST": "https://<workspace>.cloud.databricks.com",
+    "TP_DATABRICKS_TOKEN": "<databricks token>",
+    "TP_LANDING_ROOT": "/Volumes/workspace/bronze/landing"
+  }
+}

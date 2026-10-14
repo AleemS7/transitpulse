@@ -1,0 +1,47 @@
+[project]
+name = "transitpulse-collector"
+version = "0.1.0"
+description = "Polls MARTA's realtime and schedule feeds and lands them in a Databricks volume."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "azure-functions",
+    "azure-identity",
+    "azure-storage-blob",
+    "gtfs-realtime-bindings",
+    "requests",
+    "tzdata>=2026.5",
+]
+
+[dependency-groups]
+dev = [
+    "mypy",
+    "pip-audit",
+    "pytest",
+    "ruff",
+    "types-protobuf",
+    "types-requests",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["transitpulse_collector", "function_app.py"]
+
+[[tool.mypy.overrides]]
+module = ["google.transit.*", "azure.functions.*"]
+ignore_missing_imports = true

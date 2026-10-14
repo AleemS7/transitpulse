@@ -1,0 +1,13 @@
+.venv/
+.python-version
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.deadletter/
+__pycache__/
+tests/
+local.settings.json
+local.settings.example.json
+pyproject.toml
+uv.lock
+README.md
