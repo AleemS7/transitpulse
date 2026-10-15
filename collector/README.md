@@ -25,17 +25,19 @@ To write to Databricks instead, also set `TP_DATABRICKS_HOST` and `TP_DATABRICKS
 
 Requires the Azure CLI, Azure Functions Core Tools and the Databricks CLI.
 
+Region: **Central US**. A deployment in East US couldn't open connections to either MARTA host (every request timed out), while the same code in Central US reached both.
+
 1. **Landing zone in Databricks** (once): run [`sql/setup/landing.sql`](../sql/setup/landing.sql) in the SQL editor.
 2. **Resource group and resources:**
    ```powershell
-   az group create -n tp-atl-pr-rg -l eastus --tags app=transitpulse env=pr owner=transitpulse costCenter=portfolio
-   az deployment group create -g tp-atl-pr-rg -f infra/collector.bicep `
-     -p databricksHost=https://<workspace>.cloud.databricks.com alertEmail=<address> `
+   az group create -n tp-atl-pr-rg-02 -l centralus --tags app=transitpulse env=pr owner=transitpulse costCenter=portfolio
+   az deployment group create -g tp-atl-pr-rg-02 -f infra/collector.bicep `
+     -p suffix=02 databricksHost=https://<workspace>.cloud.databricks.com alertEmail=<address> `
         deployerPrincipalId=$(az ad signed-in-user show --query id -o tsv)
    ```
 3. **Secrets** (typed, never stored in files or shell history):
    ```powershell
-   $kv = 'tp-atl-pr-kv-01'
+   $kv = 'tp-atl-pr-kv-02'
    az keyvault secret set --vault-name $kv --name databricks-token --value (Read-Host 'Databricks token' -MaskInput) --output none
    az keyvault secret set --vault-name $kv --name marta-rail-api-key --value (Read-Host 'MARTA rail key' -MaskInput) --output none
    ```
@@ -43,7 +45,7 @@ Requires the Azure CLI, Azure Functions Core Tools and the Databricks CLI.
 4. **Code:**
    ```powershell
    cd collector
-   func azure functionapp publish tp-atl-pr-func-collector-01
+   func azure functionapp publish tp-atl-pr-func-collector-02 --python
    ```
 5. **Verify:** heartbeats appear every 2 minutes.
    ```powershell

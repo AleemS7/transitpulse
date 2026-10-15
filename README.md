@@ -8,7 +8,7 @@ How reliable is Atlanta transit, route by route and hour by hour? MARTA publishe
 
 | Piece | State |
 |---|---|
-| Collector (Azure Function → Databricks volume) | Built and tested; deploying |
+| Collector (Azure Function → Databricks volume) | Live, collecting every 2 minutes since 2026-10-15 |
 | Bronze / silver / gold pipeline | Next |
 | Dashboard, API, delay model, ops monitoring | Planned |
 

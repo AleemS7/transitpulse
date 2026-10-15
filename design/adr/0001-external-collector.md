@@ -1,6 +1,6 @@
 # ADR-0001: An external collector in Azure Functions pushes feeds into Databricks
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-14
 - **Related:** COL-001 to COL-007, SPK-001, SPK-002, `design/specs/collector.md`
 
@@ -26,6 +26,7 @@ Option 1. The collector is the only component that can't be re-run later, so it 
 ## Consequences
 - Databricks never calls MARTA, so pipeline code has no network dependencies and is fully testable offline.
 - A Databricks token lives in Key Vault and is tracked for expiry. Free Edition has no account console, so there is no OAuth federation alternative.
+- Reachability depends on region: from East US every MARTA request timed out, from Central US all feeds answered (2026-10-14). The collector runs in Central US, and the runbook covers moving regions.
 - Landing files are the integration contract between the two sides: names, gzip and folder layout are versioned in the collector spec.
 
 ## How I'd explain it in an interview

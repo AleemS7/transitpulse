@@ -5,7 +5,7 @@ MARTA's live feeds are captured every ~2 minutes, around the clock, into a Datab
 
 ## Users and systems
 - **MARTA feeds:** bus vehicle positions and trip updates (GTFS-RT protobuf), rail arrivals (JSON, port 18096, API key), static GTFS (zip).
-- **Azure Function App** `tp-atl-pr-func-collector-01` (Flex Consumption, Python 3.12), with its storage account, Application Insights and Key Vault.
+- **Azure Function App** `tp-atl-pr-func-collector-02` (Flex Consumption, Python 3.12), with its storage account, Application Insights and Key Vault.
 - **Databricks Files API** writing to the volume `workspace.bronze.landing`.
 - **Downstream:** the bronze pipeline (S3, S6) and the `ops` freshness checks (S8) read what lands here.
 
@@ -108,7 +108,9 @@ THE SYSTEM SHALL have unit tests that use recorded fixtures and fake HTTP, sink 
 - D-004: The landing schema and volume are created once by `sql/setup/landing.sql`, not by the bundle, so a `bundle destroy` can never delete collected history.
 - D-005: Telemetry uses the Functions host's built-in Application Insights logging; the OpenTelemetry distro isn't added (size and cold start).
 - D-006: An external collector even though Databricks egress is open today (ADR-0001).
-- D-007: Secrets are stored in Key Vault and read through the Function's managed identity; region East US.
+- D-007: Secrets are stored in Key Vault and read through the Function's managed identity. Region **Central US**: the first deployment in East US got connection timeouts from both MARTA hosts on every run, while Central US, a laptop and Databricks all connected.
+- D-009: `protobuf` is pinned to 5.x and `gtfs-realtime-bindings` below 3. The Azure Functions Python worker imports its own protobuf 5.29 before app code, and protobuf rejects generated code newer than the runtime (the first deploy failed this way on 2026-10-14).
+- D-010: `function_app.py` imports the collector inside each function, so the host can always register both timers. An import problem then appears as a failed run with a traceback in Application Insights, instead of an app with no functions.
 - D-008: When no Blob dead-letter is configured (laptop runs against Databricks), dead-letters go to a local `.deadletter/` folder.
 
 ## Design summary
