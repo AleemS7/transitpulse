@@ -1,0 +1,36 @@
+resources:
+  pipelines:
+    transitpulse:
+      name: transitpulse
+      catalog: ${var.catalog}
+      schema: ${var.schema_prefix}silver
+      serverless: true
+      continuous: false
+      channel: CURRENT
+      root_path: ../src
+      libraries:
+        - glob:
+            include: ../src/transitpulse/pipelines/**
+      configuration:
+        tp_catalog: ${var.catalog}
+        tp_bronze: ${var.schema_prefix}bronze
+        tp_silver: ${var.schema_prefix}silver
+        tp_gold: ${var.schema_prefix}gold
+        tp_ops: ${var.schema_prefix}ops
+        tp_landing_root: ${var.landing_root}
+
+  jobs:
+    transitpulse_refresh:
+      name: transitpulse-refresh
+      description: Refreshes the medallion pipeline from newly landed files. Paused automatically in dev.
+      max_concurrent_runs: 1
+      timeout_seconds: 3600
+      schedule:
+        quartz_cron_expression: "0 15 * * * ?"
+        timezone_id: UTC
+      tasks:
+        - task_key: refresh_pipeline
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.transitpulse.id}
+          max_retries: 1
+          min_retry_interval_millis: 300000

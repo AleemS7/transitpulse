@@ -1,0 +1,19 @@
+[sqlfluff]
+dialect = databricks
+templater = placeholder
+max_line_length = 110
+exclude_rules = AM04
+
+[sqlfluff:templater:placeholder]
+param_style = flyway_var
+tp_catalog = workspace
+tp_bronze = bronze
+tp_silver = silver
+tp_gold = gold
+tp_ops = ops
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = upper
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = upper
