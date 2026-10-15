@@ -1,0 +1,38 @@
+bundle:
+  name: transitpulse
+
+include:
+  - resources/*.yml
+
+# Only the pipeline code needs to reach the workspace.
+sync:
+  exclude:
+    - collector
+    - design
+    - infra
+    - scripts
+    - tests
+
+variables:
+  catalog:
+    description: Unity Catalog catalog for every table.
+    default: workspace
+  schema_prefix:
+    description: Prefix that keeps each environment's schemas apart.
+    default: ""
+  landing_root:
+    description: Volume path the collector writes to (read-only for the pipeline).
+    default: /Volumes/workspace/bronze/landing
+
+# The workspace comes from your Databricks CLI profile, so no host is committed here.
+targets:
+  dev:
+    mode: development
+    default: true
+    variables:
+      schema_prefix: dev_
+
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}

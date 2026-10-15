@@ -1,0 +1,41 @@
+[project]
+name = "transitpulse"
+version = "0.1.0"
+description = "Lakehouse pipeline that measures Atlanta transit reliability from collected MARTA feeds."
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "mypy",
+    "pip-audit",
+    "pyspark>=4.0,<4.1",
+    "pytest",
+    "ruff",
+    "sqlfluff",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+extend-exclude = ["collector"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src"]
+mypy_path = "src"
+# Pipeline entry points use the Databricks-only pyspark.pipelines API, which has no local stubs.
+exclude = ["src/transitpulse/pipelines/"]
+
