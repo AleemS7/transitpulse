@@ -22,7 +22,7 @@ cryptography==50.0.2
     #   azure-storage-blob
     #   msal
     #   pyjwt
-gtfs-realtime-bindings==3.0.0
+gtfs-realtime-bindings==2.2.0
     # via transitpulse-collector
 idna==3.20
     # via requests
@@ -36,8 +36,10 @@ msal==1.39.0
     #   msal-extensions
 msal-extensions==1.3.1
     # via azure-identity
-protobuf==7.36.2
-    # via gtfs-realtime-bindings
+protobuf==5.29.6
+    # via
+    #   gtfs-realtime-bindings
+    #   transitpulse-collector
 pycparser==3.11 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
 pyjwt==2.15.1

@@ -7,7 +7,10 @@ dependencies = [
     "azure-functions",
     "azure-identity",
     "azure-storage-blob",
-    "gtfs-realtime-bindings",
+    # The Azure Functions Python worker imports its own protobuf 5.x before app code, and protobuf
+    # refuses generated code newer than the runtime. Keep both pins in step with the worker.
+    "gtfs-realtime-bindings<3",
+    "protobuf>=5.29,<6",
     "requests",
     "tzdata>=2026.5",
 ]
