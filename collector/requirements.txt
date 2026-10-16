@@ -22,7 +22,7 @@ cryptography==50.0.2
     #   azure-storage-blob
     #   msal
     #   pyjwt
-gtfs-realtime-bindings==2.2.0
+gtfs-realtime-bindings==3.0.0
     # via transitpulse-collector
 idna==3.20
     # via requests
