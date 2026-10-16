@@ -1,4 +1,6 @@
-# Runs every local check. CI runs the same steps.
+# Runs every local check. CI runs the same script with -SkipBundle (bundle validation needs workspace sign-in).
+param([switch]$SkipBundle)
+
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
 
@@ -10,14 +12,14 @@ function Step($name, [scriptblock]$body) {
 }
 
 # PySpark needs Java 17+; prefer an installed JDK 17 over an older java on PATH.
-if (-not $env:JAVA_HOME) {
+if ($IsWindows -and -not $env:JAVA_HOME) {
     $jdk = Get-ChildItem 'C:\Program Files\Microsoft\jdk-17*', 'C:\Program Files\Eclipse Adoptium\jdk-17*' -Directory -ErrorAction SilentlyContinue |
         Sort-Object Name | Select-Object -Last 1
     if ($jdk) { $env:JAVA_HOME = $jdk.FullName }
 }
 
 # winget installs the Databricks CLI outside PATH until a new shell starts.
-if (-not (Get-Command databricks -ErrorAction SilentlyContinue)) {
+if ($IsWindows -and -not (Get-Command databricks -ErrorAction SilentlyContinue)) {
     $cli = Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Databricks.DatabricksCLI*\databricks.exe" -ErrorAction SilentlyContinue |
         Select-Object -First 1
     if ($cli) { $env:PATH = "$($cli.DirectoryName);$env:PATH" }
@@ -57,9 +59,11 @@ finally {
 }
 
 Step 'infra: bicep build' { az bicep build --file (Join-Path $root 'infra/collector.bicep') --stdout | Out-Null }
-Step 'bundle: validate' {
-    Push-Location $root
-    try { databricks bundle validate --target dev | Out-Null } finally { Pop-Location }
+if (-not $SkipBundle) {
+    Step 'bundle: validate' {
+        Push-Location $root
+        try { databricks bundle validate --target dev | Out-Null } finally { Pop-Location }
+    }
 }
 
 Write-Host 'ALL CHECKS PASSED' -ForegroundColor Green
