@@ -1,0 +1,118 @@
+name: Deploy
+
+# Every merge to main deploys what it changed. PRs already ran scripts/check.ps1 (required by the main ruleset).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: What to deploy
+        type: choice
+        options: [both, pipeline, collector]
+        default: both
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      pipeline: ${{ steps.diff.outputs.pipeline }}
+      collector: ${{ steps.diff.outputs.collector }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - id: diff
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            if [ "$TARGET" != "collector" ]; then echo "pipeline=true" >> "$GITHUB_OUTPUT"; fi
+            if [ "$TARGET" != "pipeline" ]; then echo "collector=true" >> "$GITHUB_OUTPUT"; fi
+            exit 0
+          fi
+          # main only accepts squash-merged PRs, so each push is a single commit.
+          changed=$(git diff --name-only HEAD~1 HEAD)
+          if echo "$changed" | grep -qE '^(src/|resources/|databricks\.yml$)'; then echo "pipeline=true" >> "$GITHUB_OUTPUT"; fi
+          if echo "$changed" | grep -qE '^collector/'; then echo "collector=true" >> "$GITHUB_OUTPUT"; fi
+
+  pipeline:
+    name: Databricks bundle
+    needs: changes
+    if: needs.changes.outputs.pipeline == 'true'
+    runs-on: ubuntu-latest
+    environment: prod
+    timeout-minutes: 30
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@v1.21.0
+
+      - name: Validate
+        run: databricks bundle validate -t prod
+
+      - name: Deploy
+        run: databricks bundle deploy -t prod
+
+      - name: Smoke run (refresh job)
+        run: databricks bundle run transitpulse_refresh -t prod
+
+  collector:
+    name: Collector Function
+    needs: changes
+    if: needs.changes.outputs.collector == 'true'
+    runs-on: ubuntu-latest
+    environment: prod
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: Azure/functions-action@v1
+        with:
+          app-name: tp-atl-pr-func-collector-02
+          package: collector
+          sku: flexconsumption
+          remote-build: true
+
+      - uses: databricks/setup-cli@v1.21.0
+
+      - name: Smoke check (new heartbeat lands)
+        shell: bash
+        run: |
+          started=$(date -u +%Y-%m-%dT%H%M%S)
+          for _ in $(seq 1 21); do
+            day=$(date -u +%Y-%m-%d)
+            latest=$(databricks fs ls "dbfs:/Volumes/workspace/bronze/landing/_heartbeat/dt=$day/" 2>/dev/null | sort | tail -1)
+            if [ -n "$latest" ] && [[ "${day}T${latest:0:6}" > "$started" ]]; then
+              echo "New heartbeat: dt=$day/$latest"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "No heartbeat within 7 minutes of deploy" >&2
+          exit 1
