@@ -9,7 +9,7 @@ dependencies = []
 dev = [
     "mypy",
     "pip-audit",
-    "pyspark>=4.0,<4.1",
+    "pyspark>=4.0,<4.3",
     "pytest",
     "ruff",
     "sqlfluff",
