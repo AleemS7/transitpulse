@@ -1,5 +1,7 @@
 # TransitPulse ATL
 
+[![PR validation](https://github.com/AleemS7/transitpulse/actions/workflows/pr-validation.yml/badge.svg)](https://github.com/AleemS7/transitpulse/actions/workflows/pr-validation.yml)
+
 How reliable is Atlanta transit, route by route and hour by hour? MARTA publishes live bus and rail feeds and a schedule, but no reliability numbers. This project collects the live feeds, compares them with the schedule in a bronze/silver/gold lakehouse on Databricks, and turns the results into on-time metrics, delay predictions, a REST API and self-monitoring.
 
 **Stack:** Python · PySpark · SQL · Databricks (Lakeflow, Unity Catalog, MLflow) · Azure Functions · FastAPI
@@ -9,7 +11,7 @@ How reliable is Atlanta transit, route by route and hour by hour? MARTA publishe
 | Piece | State |
 |---|---|
 | Collector (Azure Function → Databricks volume) | Live, collecting every 2 minutes since 2026-10-15 |
-| Rail: bronze → silver → `gold.rail_line_health` | Built, running on dev |
+| Rail: bronze → silver → `gold.rail_line_health` | Live, refreshed hourly |
 | Bus and schedule pipeline | Next |
 | Dashboard, API, delay model, ops monitoring | Planned |
 
@@ -32,7 +34,7 @@ scripts/     check.ps1 runs every local check
 ./scripts/check.ps1
 ```
 
-Needs uv, Java 17 (for local Spark), the Azure CLI and the Databricks CLI.
+Needs uv, Java 17 (for local Spark), the Azure CLI and the Databricks CLI. Pull requests run the same script in GitHub Actions (`-SkipBundle`, since bundle validation needs a workspace sign-in).
 
 ## Data
 
