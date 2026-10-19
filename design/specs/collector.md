@@ -49,7 +49,7 @@ WHEN a feed payload is fetched THE SYSTEM SHALL gzip it and upload it to `/Volum
 - `ext` ∈ {`pb`, `json`}
 
 ### R-004: Idempotent upload (COL-002)
-WHEN the upload target already exists (Files API `AlreadyExists`, verified in SPK-002) THE SYSTEM SHALL treat it as success with status `unchanged`, without overwriting.
+WHEN the upload target already exists THE SYSTEM SHALL treat it as success with status `unchanged`, without sending the payload: it checks with a `HEAD` request first, and still treats a `409` on `PUT` as existing (the file appeared in between). Sending a large body for an existing file makes Databricks drop the connection instead of answering `409` (incident 2026-10-19).
 - Given MARTA serves the same snapshot twice / Then one file exists, and the second heartbeat entry says `unchanged`.
 
 ### R-005: Payload checks (COL-001)

@@ -66,24 +66,47 @@ def test_permanent_errors_are_not_retried() -> None:
     assert len(calls) == 1
 
 
-def test_databricks_sink_puts_without_overwrite_and_treats_409_as_exists() -> None:
-    transport = FakeTransport({"/fs/files": [Response(204, b""), Response(409, b"")]})
-    sink = DatabricksFilesSink("https://example.cloud.databricks.com/", "tok", transport)
-    path = "/Volumes/workspace/bronze/landing/rail_arrivals/dt=2026-10-14/a.json.gz"
-    assert sink.put(path, b"x") == "created"
-    assert sink.put(path, b"x") == "exists"
-    call = transport.calls[0]
-    assert call.method == "PUT"
-    assert call.url == (
-        "https://example.cloud.databricks.com/api/2.0/fs/files"
-        "/Volumes/workspace/bronze/landing/rail_arrivals/dt%3D2026-10-14/a.json.gz?overwrite=false"
-    )
-    assert call.headers["Authorization"] == "Bearer tok"
+PATH = "/Volumes/workspace/bronze/landing/rail_arrivals/dt=2026-10-14/a.json.gz"
+URL = (
+    "https://example.cloud.databricks.com/api/2.0/fs/files"
+    "/Volumes/workspace/bronze/landing/rail_arrivals/dt%3D2026-10-14/a.json.gz"
+)
 
 
-@pytest.mark.parametrize(("status", "error"), [(503, RetryableError), (401, PermanentError)])
-def test_databricks_sink_classifies_failures(status: int, error: type[Exception]) -> None:
-    sink = DatabricksFilesSink("https://h", "tok", FakeTransport({"/fs/files": [Response(status, b"")]}))
+def make_sink(*script: Response | Exception) -> tuple[DatabricksFilesSink, FakeTransport]:
+    transport = FakeTransport({"/fs/files": list(script)})
+    return DatabricksFilesSink("https://example.cloud.databricks.com/", "tok", transport), transport
+
+
+def test_new_file_is_checked_then_put_without_overwrite() -> None:
+    sink, transport = make_sink(Response(404, b""), Response(204, b""))
+    assert sink.put(PATH, b"x") == "created"
+    assert [(c.method, c.url) for c in transport.calls] == [("HEAD", URL), ("PUT", f"{URL}?overwrite=false")]
+    assert all(c.headers["Authorization"] == "Bearer tok" for c in transport.calls)
+
+
+def test_existing_file_is_never_sent_again() -> None:
+    sink, transport = make_sink(Response(200, b""))
+    assert sink.put(PATH, b"x" * 1_000_000) == "exists"
+    assert [c.method for c in transport.calls] == ["HEAD"]
+
+
+def test_file_created_between_check_and_put_counts_as_existing() -> None:
+    sink, _ = make_sink(Response(404, b""), Response(409, b""))
+    assert sink.put(PATH, b"x") == "exists"
+
+
+@pytest.mark.parametrize(
+    ("script", "error"),
+    [
+        ((Response(503, b""),), RetryableError),
+        ((Response(401, b""),), PermanentError),
+        ((Response(404, b""), Response(503, b"")), RetryableError),
+        ((Response(404, b""), Response(403, b"")), PermanentError),
+    ],
+)
+def test_databricks_sink_classifies_failures(script: tuple[Response, ...], error: type[Exception]) -> None:
+    sink, _ = make_sink(*script)
     with pytest.raises(error):
         sink.put("/Volumes/x", b"x")
 

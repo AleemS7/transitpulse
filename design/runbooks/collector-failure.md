@@ -28,6 +28,7 @@
 | Rail `failed` with HTTP 401/403 | Rail key rejected | Register or renew the key, then `az keyvault secret set ... --name marta-rail-api-key`, then restart the app. |
 | Every feed `deadlettered`, upload HTTP 401/403 | Databricks token expired or revoked | Create a new token in Databricks (Settings → Developer → Access tokens), then `az keyvault secret set ... --name databricks-token`, then restart the app. Items replay on the next run. |
 | Every feed `deadlettered`, upload 5xx or timeouts | Databricks unavailable | Wait. Items replay automatically, up to 50 per run. |
+| `deadletter_pending` stuck above 0, log shows `replay stopped at ...` with an SSL or connection error | An item that keeps failing blocks replay (it stops at the first failure) | Find the item in the log; fix the cause and redeploy; replay drains on the next run. |
 | Upload HTTP 404 | Landing volume missing | Re-run `sql/setup/landing.sql`. |
 | Runs fail with `VersionError: Detected incompatible Protobuf Gencode/Runtime versions` | A dependency upgrade pulled protobuf or `gtfs-realtime-bindings` past what the Functions worker supports | Restore the pins in `collector/pyproject.toml` (spec D-009), run `scripts/export-requirements.ps1`, and redeploy. |
 | No heartbeats and no logs | Function stopped or failing to start | `az functionapp restart ...`; if it still won't start, redeploy with `func azure functionapp publish tp-atl-pr-func-collector-02 --python`. |
@@ -43,3 +44,4 @@ The next heartbeat shows all feeds `ok` or `unchanged`, and `deadletter_pending`
 | Date | What happened | Root cause | Follow-up |
 |---|---|---|---|
 | 2026-10-14 | First deployment (East US) fetched nothing: every MARTA request timed out, while uploads to Databricks worked | MARTA unreachable from that region's outbound addresses | Redeployed in Central US; all feeds `ok` from 02:48 UTC on 2026-10-15 |
+| 2026-10-15 to 2026-10-19 | `deadletter_pending` stuck at 5; every run logged `replay stopped at gtfs_static/...zip: SSLError` | The unchanged 18.6 MB schedule zip was re-uploaded daily; Databricks dropped the connection mid-body instead of answering 409, so it was dead-lettered and blocked replay | Uploads now check for the file first (HEAD) and send nothing if it exists |

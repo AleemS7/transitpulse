@@ -23,10 +23,19 @@ class DatabricksFilesSink:
         self._timeout_s = timeout_s
 
     def put(self, path: str, data: bytes) -> PutResult:
+        url = f"{self._host}/api/2.0/fs/files{quote(path)}"
+        auth = {"Authorization": f"Bearer {self._token}"}
+        # Check first: Databricks drops the connection mid-body when a large file already exists,
+        # which surfaces as a connection error instead of a clean 409.
+        head = self._transport.request("HEAD", url, headers=auth, timeout=self._timeout_s)
+        if 200 <= head.status < 300:
+            return "exists"
+        if head.status != 404:
+            raise_for_status(head, "exists check")
         resp = self._transport.request(
             "PUT",
-            f"{self._host}/api/2.0/fs/files{quote(path)}?overwrite=false",
-            headers={"Authorization": f"Bearer {self._token}", "Content-Type": "application/octet-stream"},
+            f"{url}?overwrite=false",
+            headers={**auth, "Content-Type": "application/octet-stream"},
             body=data,
             timeout=self._timeout_s,
         )
