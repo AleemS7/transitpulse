@@ -7,6 +7,15 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # The Azure Functions Python worker loads protobuf 5.x first (collector spec D-009).
+      - dependency-name: protobuf
+        versions: [">=6"]
+      - dependency-name: gtfs-realtime-bindings
+        versions: [">=3"]
+      # Local tests must match the Spark version Databricks pipelines run (4.0).
+      - dependency-name: pyspark
+        versions: [">=4.1"]
 
   - package-ecosystem: github-actions
     directory: "/"
