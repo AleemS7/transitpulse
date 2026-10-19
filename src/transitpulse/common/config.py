@@ -14,6 +14,7 @@ KEYS = {
     "gold": "tp_gold",
     "ops": "tp_ops",
     "landing_root": "tp_landing_root",
+    "gtfs_files_root": "tp_gtfs_files_root",
 }
 
 
@@ -25,6 +26,7 @@ class PipelineConfig:
     gold: str = "gold"
     ops: str = "ops"
     landing_root: str = "/Volumes/workspace/bronze/landing"
+    gtfs_files_root: str = "/Volumes/workspace/bronze/gtfs_files"
 
     def table(self, layer: Layer, name: str) -> str:
         """Fully qualified table name, e.g. workspace.dev_silver.rail_arrivals."""
