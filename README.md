@@ -12,7 +12,8 @@ How reliable is Atlanta transit, route by route and hour by hour? MARTA publishe
 |---|---|
 | Collector (Azure Function → Databricks volume) | Live, collecting every 2 minutes since 2026-10-15 |
 | Rail: bronze → silver → `gold.rail_line_health` | Live, refreshed hourly |
-| Bus and schedule pipeline | Next |
+| Schedule (GTFS, versioned) → `dim_date`, `dim_route`, `dim_stop` (SCD Type 2) | Live, refreshed hourly |
+| Bus pipeline and delay facts | Next |
 | Dashboard, API, delay model, ops monitoring | Planned |
 
 ## Layout
@@ -24,7 +25,7 @@ resources/   Databricks Asset Bundle definitions (pipeline, jobs); databricks.ym
 tests/       Unit tests on local PySpark with synthetic edge cases
 design/      ADRs, specs and runbooks
 infra/       Bicep for the Azure resources
-sql/         One-time setup SQL (schemas, landing volume)
+sql/         One-time setup SQL (schemas, volumes) and analysis queries
 scripts/     check.ps1 runs every local check
 ```
 

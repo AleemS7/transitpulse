@@ -23,6 +23,9 @@ variables:
   landing_root:
     description: Volume path the collector writes to (read-only for the pipeline).
     default: /Volumes/workspace/bronze/landing
+  gtfs_files_root:
+    description: Volume where each GTFS schedule version is unpacked, one folder per table.
+    default: /Volumes/${var.catalog}/${var.schema_prefix}bronze/gtfs_files
 
 # The workspace comes from your Databricks CLI profile, so no host is committed here.
 targets:

@@ -2,7 +2,8 @@
 dialect = databricks
 templater = placeholder
 max_line_length = 110
-exclude_rules = AM04
+# AM04: SELECT * inside CTEs is fine; ST06: dimensions put the surrogate key first.
+exclude_rules = AM04, ST06
 
 [sqlfluff:templater:placeholder]
 param_style = flyway_var

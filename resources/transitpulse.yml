@@ -18,6 +18,7 @@ resources:
         tp_gold: ${var.schema_prefix}gold
         tp_ops: ${var.schema_prefix}ops
         tp_landing_root: ${var.landing_root}
+        tp_gtfs_files_root: ${var.gtfs_files_root}
 
   jobs:
     transitpulse_refresh:
@@ -28,8 +29,25 @@ resources:
       schedule:
         quartz_cron_expression: "0 15 * * * ?"
         timezone_id: UTC
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "3"
       tasks:
+        - task_key: extract_gtfs
+          environment_key: default
+          spark_python_task:
+            python_file: ../src/transitpulse/jobs/extract_gtfs.py
+            parameters:
+              - --src-root
+              - ${workspace.file_path}/src
+              - --zip-dir
+              - ${var.landing_root}/gtfs_static
+              - --out-dir
+              - ${var.gtfs_files_root}
         - task_key: refresh_pipeline
+          depends_on:
+            - task_key: extract_gtfs
           pipeline_task:
             pipeline_id: ${resources.pipelines.transitpulse.id}
           max_retries: 1

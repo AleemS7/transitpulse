@@ -21,3 +21,10 @@ COMMENT 'Business metrics; the contract for dashboards, the API and the delay mo
 
 CREATE SCHEMA IF NOT EXISTS workspace.ops
 COMMENT 'Pipeline health: freshness, data quality, collector runs and incidents.';
+
+-- Each GTFS schedule version is unpacked here (one folder per table) by the extract_gtfs job task.
+CREATE VOLUME IF NOT EXISTS workspace.dev_bronze.gtfs_files
+COMMENT 'Development copy of the unpacked GTFS schedule files.';
+
+CREATE VOLUME IF NOT EXISTS workspace.bronze.gtfs_files
+COMMENT 'GTFS schedule files unpacked per version: <table>/feed_version=<hash>/<table>.txt.';
