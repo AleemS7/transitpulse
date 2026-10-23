@@ -10,7 +10,7 @@ azure-identity==1.26.0
     # via transitpulse-collector
 azure-storage-blob==12.31.0
     # via transitpulse-collector
-certifi==2026.7.22
+certifi==2026.10.18
     # via requests
 cffi==2.1.1 ; platform_python_implementation != 'PyPy'
     # via cryptography
