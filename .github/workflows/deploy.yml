@@ -59,7 +59,7 @@ jobs:
       DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
     steps:
       - uses: actions/checkout@v7
-      - uses: databricks/setup-cli@v1.21.0
+      - uses: databricks/setup-cli@v1.22.1
 
       - name: Validate
         run: databricks bundle validate -t prod
@@ -99,7 +99,7 @@ jobs:
           sku: flexconsumption
           remote-build: true
 
-      - uses: databricks/setup-cli@v1.21.0
+      - uses: databricks/setup-cli@v1.22.1
 
       - name: Smoke check (new heartbeat lands)
         shell: bash
