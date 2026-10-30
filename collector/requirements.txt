@@ -6,11 +6,11 @@ azure-core==1.41.0
     #   azure-storage-blob
 azure-functions==1.25.0
     # via transitpulse-collector
-azure-identity==1.26.0
+azure-identity==1.27.0
     # via transitpulse-collector
 azure-storage-blob==12.31.0
     # via transitpulse-collector
-certifi==2026.7.22
+certifi==2026.10.23
     # via requests
 cffi==2.1.1 ; platform_python_implementation != 'PyPy'
     # via cryptography
@@ -40,7 +40,7 @@ protobuf==5.29.6
     # via
     #   gtfs-realtime-bindings
     #   transitpulse-collector
-pycparser==3.11 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
+pycparser==3.12 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
 pyjwt==2.15.1
     # via msal
