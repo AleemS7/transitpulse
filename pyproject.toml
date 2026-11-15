@@ -7,12 +7,15 @@ dependencies = []
 
 [dependency-groups]
 dev = [
+    "gtfs-realtime-bindings>=2,<3",
     "mypy",
     "pip-audit",
+    "protobuf>=5.29,<6",
     "pyspark>=4.0,<4.1",
     "pytest",
     "ruff",
     "sqlfluff",
+    "types-protobuf>=7.35.1.20260906",
 ]
 
 [tool.uv]

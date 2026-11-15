@@ -11,6 +11,10 @@ resources:
       libraries:
         - glob:
             include: ../src/transitpulse/pipelines/**
+      environment:
+        dependencies:
+          # Decodes the bus feeds; keep in step with the root pyproject.toml dev group.
+          - gtfs-realtime-bindings==2.2.0
       configuration:
         tp_catalog: ${var.catalog}
         tp_bronze: ${var.schema_prefix}bronze
@@ -19,6 +23,7 @@ resources:
         tp_ops: ${var.schema_prefix}ops
         tp_landing_root: ${var.landing_root}
         tp_gtfs_files_root: ${var.gtfs_files_root}
+        tp_realtime_start: ${var.realtime_start}
 
   jobs:
     transitpulse_refresh:
