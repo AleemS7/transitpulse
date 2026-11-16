@@ -69,5 +69,6 @@ WHERE the bundle variable `realtime_start` is set, THE SYSTEM SHALL load only fi
 
 ## Constraints and assumptions
 - **Python UDF:** gzip and protobuf have no Spark built-ins, so decoding is a Python UDF, called once per file rather than once per row. The decoder is pickled by value because serverless workers don't have the repo on their import path.
-- **Pipeline dependency:** `gtfs-realtime-bindings` is installed through the pipeline's environment.
+- **No pipeline dependency:** the GTFS-realtime schema ships as `gtfs-realtime.desc`, the compiled `.proto`. The driver reads it and passes it into the UDF, so workers need only `protobuf`, which the runtime already includes. Installing `gtfs-realtime-bindings` through the pipeline environment didn't reliably reach the UDF workers. A unit test checks the file against the official bindings.
+- **Memory:** a decoded trip-updates snapshot is about 10 MB of Python objects, and serverless caps UDF memory at 1 GB. Trip updates are therefore read at most 25 files per micro-batch.
 - **Non-standard direction IDs ✱:** MARTA sends `direction_id` values such as 5 and 11, outside GTFS's 0/1. They're kept as sent; direction comes from the static schedule in gold.

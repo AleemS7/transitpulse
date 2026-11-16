@@ -29,6 +29,12 @@ Option 1.
 - `delay_seconds` is the observed arrival minus MARTA's scheduled arrival from the same update.
 - A stop that never shows up as passed gets no observed arrival. It stays NULL rather than a guess.
 
+## First results (dev, 2026-11-12 to 11-15)
+- **Volume:** 2,087 trip-update snapshots gave 430,339 observed arrivals across 14,496 trips.
+- **Delay distribution** (observed − scheduled): 5th percentile −153 s, median +96 s, 95th percentile +1,131 s. A plausible shape for city buses.
+- **Quarantine:** 21,355 reports (5%) were 3–16 hours off schedule. All came from 79 trips, which looks like buses reporting against the wrong trip; the `near_schedule` rule keeps them out of silver.
+- **Stop IDs:** every observed arrival matched a trip and stop sequence in the timetable. 70% carried a realtime stop ID that differs from the timetable's, so gold takes the stop from the timetable.
+
 ## Consequences
 - **What "observed" means:** it's MARTA's reported arrival, not an independent measurement. Gold tables say so.
 - **Coverage:** depends on how long MARTA keeps passed stops in the feed, relative to the collector's 2-minute polling. Coverage per route and hour is measured in gold, so gaps are visible rather than silent.

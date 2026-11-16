@@ -25,6 +25,8 @@ from pyspark.sql.types import (
 )
 
 from transitpulse.bus import decode
+from transitpulse.bus.decode import trip_updates as trip_feed
+from transitpulse.bus.decode import vehicle_positions as vehicle_feed
 from transitpulse.common.quality import Rules
 from transitpulse.common.time import epoch_to_local
 from transitpulse.gtfs.transforms import gtfs_date
@@ -83,10 +85,14 @@ def _decoded(entity: StructType) -> StructType:
 # Python workers don't have this repo on their import path, so the decoder travels with the UDF itself.
 cloudpickle.register_pickle_by_value(decode)  # type: ignore[no-untyped-call]
 
+GTFS_RT_SCHEMA = decode.load_schema()
+
 # One Python call per file, not per row: gzip and protobuf have no Spark built-in, and a file holds hundreds
 # of entities, so the UDF cost is small next to the rows it produces.
-decode_vehicle_positions = F.udf(decode.vehicle_positions, _decoded(VEHICLE))
-decode_trip_updates = F.udf(decode.trip_updates, _decoded(TRIP_UPDATE))
+# The lambdas name the functions, not the module: pickling the module would carry its whole namespace,
+# including driver-only objects the workers can't rebuild.
+decode_vehicle_positions = F.udf(lambda content: vehicle_feed(content, GTFS_RT_SCHEMA), _decoded(VEHICLE))
+decode_trip_updates = F.udf(lambda content: trip_feed(content, GTFS_RT_SCHEMA), _decoded(TRIP_UPDATE))
 
 # Generous box around metro Atlanta; it catches (0, 0) and swapped coordinates, not detours.
 ATLANTA_BBOX = "latitude BETWEEN 33.0 AND 34.5 AND longitude BETWEEN -85.5 AND -83.5"

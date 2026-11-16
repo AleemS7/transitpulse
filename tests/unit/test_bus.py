@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 from google.transit import gtfs_realtime_pb2 as rt
+from pyspark import cloudpickle
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
@@ -11,6 +12,8 @@ from tests.conftest import utc
 from transitpulse.bus import decode
 from transitpulse.bus import transforms as bus
 from transitpulse.common.quality import FAILED_RULES, with_failed_rules
+
+SCHEMA = decode.load_schema()
 
 # 2026-11-15 18:15:48 in Atlanta (EST).
 FEED_TS = 1794784548
@@ -75,8 +78,19 @@ def trip_feed(feed_ts: int = FEED_TS) -> bytes:
     return gzip.compress(msg.SerializeToString())
 
 
+def test_udfs_ship_only_functions_and_the_schema() -> None:
+    # Pickling a whole module drags its namespace along; on Databricks that includes driver-only objects.
+    for udf in (bus.decode_vehicle_positions, bus.decode_trip_updates):
+        payload = cloudpickle.dumps(udf.func)
+        assert b"pathlib" not in payload and b"SCHEMA_FILE" not in payload
+
+
+def test_bundled_schema_matches_the_official_bindings() -> None:
+    assert rt.DESCRIPTOR.serialized_pb == SCHEMA
+
+
 def test_vehicle_feed_decodes_to_one_row_per_vehicle() -> None:
-    out = decode.vehicle_positions(vehicle_feed())
+    out = decode.vehicle_positions(vehicle_feed(), SCHEMA)
     assert out["decode_error"] is None and out["feed_epoch"] == FEED_TS
     first = out["entities"][0]
     assert first["vehicle_id"] == "2304" and first["trip_id"] == "11723886" and first["direction_id"] == 5
@@ -86,7 +100,7 @@ def test_vehicle_feed_decodes_to_one_row_per_vehicle() -> None:
 
 
 def test_trip_feed_keeps_each_trips_stop_updates_together() -> None:
-    out = decode.trip_updates(trip_feed())
+    out = decode.trip_updates(trip_feed(), SCHEMA)
     trip = out["entities"][0]
     assert [s["stop_sequence"] for s in trip["stop_time_updates"]] == [2, 3, 4, 5, 6]
     assert trip["stop_time_updates"][0]["scheduled_arrival_epoch"] == FEED_TS - 900
@@ -96,7 +110,7 @@ def test_trip_feed_keeps_each_trips_stop_updates_together() -> None:
 
 
 def test_uncompressed_payload_is_accepted() -> None:
-    assert decode.vehicle_positions(gzip.decompress(vehicle_feed()))["feed_epoch"] == FEED_TS
+    assert decode.vehicle_positions(gzip.decompress(vehicle_feed()), SCHEMA)["feed_epoch"] == FEED_TS
 
 
 @pytest.mark.parametrize(
@@ -104,7 +118,7 @@ def test_uncompressed_payload_is_accepted() -> None:
     [(b"", "empty file"), (b"\x1f\x8b not really gzip", "BadGzipFile"), (b"\xff\xff\xff\xff", "DecodeError")],
 )
 def test_unreadable_files_return_an_error_instead_of_raising(content: bytes, error: str) -> None:
-    out = decode.trip_updates(content)
+    out = decode.trip_updates(content, SCHEMA)
     assert error in out["decode_error"] and out["entities"] == [] and out["feed_epoch"] is None
 
 

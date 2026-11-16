@@ -17,24 +17,28 @@ spark = SparkSession.active()
 cfg = PipelineConfig.from_conf(spark.conf.get)
 
 
-def landed_files(feed: str) -> DataFrame:
+def landed_files(feed: str, max_files_per_batch: int | None = None) -> DataFrame:
     reader = (
         spark.readStream.format("cloudFiles")
         .option("cloudFiles.format", "binaryFile")
         .option("pathGlobFilter", "*.pb.gz")
     )
+    if max_files_per_batch:
+        reader = reader.option("cloudFiles.maxFilesPerTrigger", str(max_files_per_batch))
     # Only consulted on a table's first run; afterwards the stream's checkpoint decides what is new.
     if cfg.realtime_start:
         reader = reader.option("modifiedAfter", cfg.realtime_start)
     return reader.load(cfg.landing(feed)).select("content", "_metadata")
 
 
-def define_bronze(feed: str, decoder: Column, entity: StructType, comment: str) -> str:
+def define_bronze(
+    feed: str, decoder: Column, entity: StructType, comment: str, max_files_per_batch: int | None = None
+) -> str:
     name = cfg.table("bronze", feed)
 
     @dp.table(name=name, comment=comment)
     def bronze() -> DataFrame:
-        return bus.bronze(landed_files(feed), decoder, entity)
+        return bus.bronze(landed_files(feed, max_files_per_batch), decoder, entity)
 
     return name
 
@@ -85,6 +89,9 @@ TU_BRONZE = define_bronze(
     bus.decode_trip_updates("content"),
     bus.TRIP_UPDATE,
     "Bus trip updates as MARTA sent them, one row per trip per snapshot, stop updates kept as a list.",
+    # A decoded snapshot is ~10 MB of Python objects and the UDF works through up to 100 rows at a time;
+    # serverless caps UDF memory at 1 GB, so each micro-batch takes at most 25 files.
+    max_files_per_batch=25,
 )
 
 define_silver(
