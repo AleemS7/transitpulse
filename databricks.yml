@@ -40,6 +40,9 @@ variables:
   realtime_start:
     description: Oldest landed realtime file a new table loads (yyyy-MM-ddTHH:mm:ss, UTC). Empty loads all.
     default: ""
+  retention_mode:
+    description: report lists what landing retention would delete; delete also deletes it.
+    default: report
 
 # The workspace comes from your Databricks CLI profile, so no host is committed here.
 targets:
@@ -51,6 +54,8 @@ targets:
       app_suffix: -dev
       # dev only needs recent bus data, and the daily compute quota is shared with prod.
       realtime_start: "2026-11-13T00:00:00"
+      # dev reads the same landing volume as prod, so it must never delete from it.
+      retention_mode: report
 
   prod:
     mode: production

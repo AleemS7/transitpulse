@@ -45,7 +45,21 @@ THE SYSTEM SHALL record every result, then fail the task if any check failed, wh
 ### R-005: Runbooks (MON-005)
 Each failure mode has a first step in `design/runbooks/health-checks.md` or `collector-failure.md`.
 
+### R-006: Landing retention (MON-006)
+WHEN the daily retention job runs THE SYSTEM SHALL record one row per landing day folder in `ops.landing_retention`. In `delete` mode, it SHALL delete a day folder only when all of the following hold:
+- the folder is more than 30 days old;
+- every file in it is in bronze, or is listed in Auto Loader's state for a stream that has already loaded a later day;
+- no file in it failed to decode.
+
+At most the 3 oldest such days go per run. `gtfs_static` is never deleted.
+- Given an old day whose overnight files are empty snapshots / When the stream has loaded the next day / Then the folder is deletable.
+- Given one file not yet loaded / Then the whole folder is kept with reason `1 file(s) not in bronze yet`.
+- Given a file was replayed into the folder after the check / Then the folder is left for the next run.
+- Dev pins `report` mode, because it reads the same landing volume as prod.
+
+THE SYSTEM SHALL block full refresh of the realtime bronze tables (`pipelines.reset.allowed = false`), because landing no longer holds their full history (ADR-0009).
+
 ## Constraints and assumptions
 - **Service hours:** the windows are judgement calls. Rail stops overnight and MARTA's rail API returns HTTP 500 between about 1 and 6 AM, so feed checks run only in service hours.
 - **When there's no alert:** if the job doesn't run at all (paused, or the quota is exhausted), there's no alert. The collector's own monitoring (Application Insights) still covers collection.
-- **Landing retention (MON-006):** not built yet. It deletes data, so it needs approval first.
+- **Landing retention (MON-006):** ships in `report` mode; deletion is switched on in the prod target only after a reviewed report (ADR-0009).

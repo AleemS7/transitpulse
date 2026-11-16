@@ -1,0 +1,38 @@
+resources:
+  jobs:
+    transitpulse_landing_retention:
+      name: transitpulse-landing-retention
+      description: Deletes landing day folders older than the retention window once every file is in bronze. Records each decision in ops.landing_retention.
+      max_concurrent_runs: 1
+      timeout_seconds: 3600
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
+      schedule:
+        quartz_cron_expression: "0 45 10 * * ?"
+        timezone_id: UTC
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "3"
+      tasks:
+        - task_key: retention
+          environment_key: default
+          max_retries: 0
+          spark_python_task:
+            python_file: ../src/transitpulse/jobs/landing_retention.py
+            parameters:
+              - --src-root
+              - ${workspace.file_path}/src
+              - --catalog
+              - ${var.catalog}
+              - --bronze
+              - ${var.schema_prefix}bronze
+              - --ops
+              - ${var.schema_prefix}ops
+              - --landing-root
+              - ${var.landing_root}
+              - --run-id
+              - "{{job.run_id}}"
+              - --mode
+              - ${var.retention_mode}

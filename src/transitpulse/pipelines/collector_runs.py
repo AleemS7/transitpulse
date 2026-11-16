@@ -6,7 +6,7 @@ Freshness and data-quality summaries are SQL files in this folder (feed_freshnes
 from pyspark import pipelines as dp
 from pyspark.sql import DataFrame, SparkSession
 
-from transitpulse.common.config import PipelineConfig
+from transitpulse.common.config import BRONZE_PROPERTIES, PipelineConfig
 from transitpulse.common.quality import passed, quarantined, with_failed_rules
 from transitpulse.ops import heartbeats
 
@@ -17,7 +17,11 @@ BRONZE = cfg.table("bronze", "collector_heartbeats")
 RUNS = cfg.table("ops", "collector_runs")
 
 
-@dp.table(name=BRONZE, comment="Collector heartbeats as written, one row per collector run.")
+@dp.table(
+    name=BRONZE,
+    comment="Collector heartbeats as written, one row per collector run.",
+    table_properties=BRONZE_PROPERTIES,
+)
 def collector_heartbeats() -> DataFrame:
     raw = (
         spark.readStream.format("cloudFiles")
