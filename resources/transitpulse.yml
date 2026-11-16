@@ -8,6 +8,11 @@ resources:
       continuous: false
       channel: CURRENT
       root_path: ../src
+      # Published so ops.dq_metrics can read expectation results with plain SQL.
+      event_log:
+        catalog: ${var.catalog}
+        schema: ${var.schema_prefix}ops
+        name: pipeline_events
       libraries:
         - glob:
             include: ../src/transitpulse/pipelines/**
@@ -26,6 +31,10 @@ resources:
       name: transitpulse-refresh
       description: Refreshes the medallion pipeline from newly landed files. Paused automatically in dev.
       max_concurrent_runs: 1
+      # A failed task (including a failed health check) is the alert.
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
       # An hourly refresh takes a few minutes; the headroom is for a first load of the collected history.
       timeout_seconds: 7200
       schedule:
@@ -54,3 +63,20 @@ resources:
             pipeline_id: ${resources.pipelines.transitpulse.id}
           max_retries: 1
           min_retry_interval_millis: 300000
+        - task_key: health_checks
+          depends_on:
+            - task_key: refresh_pipeline
+          environment_key: default
+          spark_python_task:
+            python_file: ../src/transitpulse/jobs/health_checks.py
+            parameters:
+              - --src-root
+              - ${workspace.file_path}/src
+              - --catalog
+              - ${var.catalog}
+              - --silver
+              - ${var.schema_prefix}silver
+              - --ops
+              - ${var.schema_prefix}ops
+              - --run-id
+              - "{{job.run_id}}"
