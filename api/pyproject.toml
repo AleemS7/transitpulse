@@ -1,0 +1,45 @@
+[project]
+name = "transitpulse-api"
+version = "0.1.0"
+description = "Read-only HTTP API over the transitpulse gold tables, served on Databricks Apps."
+# Databricks Apps runs Python 3.11; the code stays compatible with it.
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "databricks-sdk",
+    "databricks-sql-connector",
+    "fastapi",
+    "uvicorn",
+]
+
+[dependency-groups]
+dev = [
+    "httpx",
+    "mypy",
+    "pip-audit",
+    "pytest",
+    "ruff",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["transitpulse_api"]
+
+[[tool.mypy.overrides]]
+module = ["databricks.sql.*"]
+ignore_missing_imports = true

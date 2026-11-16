@@ -1,0 +1,9 @@
+resources:
+  dashboards:
+    transitpulse_reliability:
+      display_name: TransitPulse ATL reliability
+      file_path: ../dashboards/transitpulse.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      # Queries name tables without a schema, so one file serves dev_gold and gold.
+      dataset_catalog: ${var.catalog}
+      dataset_schema: ${var.schema_prefix}gold

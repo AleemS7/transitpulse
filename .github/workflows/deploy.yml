@@ -44,7 +44,7 @@ jobs:
           fi
           # main only accepts squash-merged PRs, so each push is a single commit.
           changed=$(git diff --name-only HEAD~1 HEAD)
-          if echo "$changed" | grep -qE '^(src/|resources/|databricks\.yml$)'; then echo "pipeline=true" >> "$GITHUB_OUTPUT"; fi
+          if echo "$changed" | grep -qE '^(src/|api/|resources/|databricks\.yml$)'; then echo "pipeline=true" >> "$GITHUB_OUTPUT"; fi
           if echo "$changed" | grep -qE '^collector/'; then echo "collector=true" >> "$GITHUB_OUTPUT"; fi
 
   pipeline:
@@ -53,7 +53,8 @@ jobs:
     if: needs.changes.outputs.pipeline == 'true'
     runs-on: ubuntu-latest
     environment: prod
-    timeout-minutes: 30
+    # Matches the refresh job's own timeout, which leaves room for a first load of collected history.
+    timeout-minutes: 130
     env:
       DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
       DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
@@ -66,6 +67,9 @@ jobs:
 
       - name: Deploy
         run: databricks bundle deploy -t prod
+
+      - name: Deploy API app
+        run: databricks bundle run transitpulse_api -t prod
 
       - name: Smoke run (refresh job)
         run: databricks bundle run transitpulse_refresh -t prod

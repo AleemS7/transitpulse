@@ -1,0 +1,677 @@
+{
+  "datasets": [
+    {
+      "name": "latest_day",
+      "displayName": "Latest collected day",
+      "queryLines": [
+        "SELECT service_date, bus_on_time_pct, ghost_trip_pct, cancelled_trips, observed_arrivals, bunched_pct, rail_avg_delay_seconds\n",
+        "FROM daily_kpis\n",
+        "WHERE service_date = (SELECT MAX(service_date) FROM daily_kpis)\n"
+      ]
+    },
+    {
+      "name": "daily",
+      "displayName": "Daily KPIs",
+      "queryLines": [
+        "SELECT service_date, day_name, bus_on_time_pct, ghost_trip_pct, bunched_pct, bus_avg_delay_seconds, rail_avg_delay_seconds\n",
+        "FROM daily_kpis\n"
+      ]
+    },
+    {
+      "name": "ghost_by_reason",
+      "displayName": "Ghost trips by reason",
+      "queryLines": [
+        "SELECT service_date, CASE reason WHEN 'cancelled' THEN 'Cancelled by MARTA' ELSE 'No realtime trace' END AS reason, COUNT(*) AS trips\n",
+        "FROM ghost_trips\n",
+        "GROUP BY service_date, reason\n"
+      ]
+    },
+    {
+      "name": "otp_by_hour",
+      "displayName": "On-time by hour",
+      "queryLines": [
+        "SELECT hour_local, ROUND(100 * SUM(on_time) / NULLIF(SUM(on_time + early + late), 0), 1) AS on_time_pct, SUM(arrivals) AS arrivals\n",
+        "FROM otp_route_hour\n",
+        "WHERE service_date >= DATE_SUB((SELECT MAX(service_date) FROM otp_route_hour), 6)\n",
+        "GROUP BY hour_local\n"
+      ]
+    },
+    {
+      "name": "worst_routes",
+      "displayName": "Least punctual routes (last 7 days)",
+      "queryLines": [
+        "SELECT CONCAT('Route ', route_short_name) AS route, ROUND(100 * SUM(on_time) / NULLIF(SUM(on_time + early + late), 0), 1) AS on_time_pct, SUM(arrivals) AS arrivals\n",
+        "FROM otp_route_hour\n",
+        "WHERE service_date >= DATE_SUB((SELECT MAX(service_date) FROM otp_route_hour), 6)\n",
+        "GROUP BY route_short_name\n",
+        "HAVING SUM(arrivals) >= 500\n",
+        "ORDER BY on_time_pct\n",
+        "LIMIT 10\n"
+      ]
+    },
+    {
+      "name": "worst_stops",
+      "displayName": "Stops with the longest delays (last 7 days)",
+      "queryLines": [
+        "SELECT stop_name, ROUND(SUM(avg_delay_seconds * arrivals) / SUM(arrivals) / 60, 1) AS avg_delay_minutes, SUM(arrivals) AS arrivals\n",
+        "FROM stop_delay\n",
+        "WHERE service_date >= DATE_SUB((SELECT MAX(service_date) FROM stop_delay), 6)\n",
+        "GROUP BY stop_name\n",
+        "HAVING SUM(arrivals) >= 100\n",
+        "ORDER BY avg_delay_minutes DESC\n",
+        "LIMIT 10\n"
+      ]
+    },
+    {
+      "name": "rail_lines",
+      "displayName": "Rail delay by line (last 7 days)",
+      "queryLines": [
+        "SELECT line, ROUND(SUM(avg_delay_seconds * realtime_predictions) / NULLIF(SUM(realtime_predictions), 0)) AS avg_delay_seconds\n",
+        "FROM rail_line_health\n",
+        "WHERE service_date >= DATE_SUB((SELECT MAX(service_date) FROM rail_line_health), 6)\n",
+        "GROUP BY line\n"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "reliability",
+      "displayName": "Reliability",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "header",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# TransitPulse ATL: is Atlanta transit on time?\n",
+                "Bus and rail reliability from MARTA's live feeds, collected every 2 minutes. Bus on time = no more than 1 minute early or 5 minutes late. Uses MARTA open data.\n"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "c_otp",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "latest_day",
+                  "fields": [
+                    {
+                      "name": "bus_on_time_pct",
+                      "expression": "`bus_on_time_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "bus_on_time_pct",
+                  "displayName": "Bus on-time % (latest full day)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Bus on-time % (latest full day)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_ghost",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "latest_day",
+                  "fields": [
+                    {
+                      "name": "ghost_trip_pct",
+                      "expression": "`ghost_trip_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "ghost_trip_pct",
+                  "displayName": "Ghost trips %"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Ghost trips %"
+              }
+            }
+          },
+          "position": {
+            "x": 1,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_cancelled",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "latest_day",
+                  "fields": [
+                    {
+                      "name": "cancelled_trips",
+                      "expression": "`cancelled_trips`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "cancelled_trips",
+                  "displayName": "Trips cancelled by MARTA"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Trips cancelled by MARTA"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_arrivals",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "latest_day",
+                  "fields": [
+                    {
+                      "name": "observed_arrivals",
+                      "expression": "`observed_arrivals`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "observed_arrivals",
+                  "displayName": "Bus arrivals observed"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Bus arrivals observed"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_bunched",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "latest_day",
+                  "fields": [
+                    {
+                      "name": "bunched_pct",
+                      "expression": "`bunched_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "bunched_pct",
+                  "displayName": "Bunched arrivals %"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Bunched arrivals %"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_rail",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "latest_day",
+                  "fields": [
+                    {
+                      "name": "rail_avg_delay_seconds",
+                      "expression": "`rail_avg_delay_seconds`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "rail_avg_delay_seconds",
+                  "displayName": "Rail average delay (s)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Rail average delay (s)"
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "l_otp",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "daily",
+                  "fields": [
+                    {
+                      "name": "service_date",
+                      "expression": "`service_date`"
+                    },
+                    {
+                      "name": "bus_on_time_pct",
+                      "expression": "`bus_on_time_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "service_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Service day"
+                },
+                "y": {
+                  "fieldName": "bus_on_time_pct",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "On-time %"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Bus on-time % by day"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "b_ghost",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ghost_by_reason",
+                  "fields": [
+                    {
+                      "name": "service_date",
+                      "expression": "`service_date`"
+                    },
+                    {
+                      "name": "trips",
+                      "expression": "`trips`"
+                    },
+                    {
+                      "name": "reason",
+                      "expression": "`reason`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "service_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Service day"
+                },
+                "y": {
+                  "fieldName": "trips",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Trips"
+                },
+                "color": {
+                  "fieldName": "reason",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Reason"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Ghost trips by day"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 5,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "l_hour",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "otp_by_hour",
+                  "fields": [
+                    {
+                      "name": "hour_local",
+                      "expression": "`hour_local`"
+                    },
+                    {
+                      "name": "on_time_pct",
+                      "expression": "`on_time_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "hour_local",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Hour"
+                },
+                "y": {
+                  "fieldName": "on_time_pct",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "On-time %"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Bus on-time % by hour of day (Atlanta time, last 7 days)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 11,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "b_rail",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "rail_lines",
+                  "fields": [
+                    {
+                      "name": "line",
+                      "expression": "`line`"
+                    },
+                    {
+                      "name": "avg_delay_seconds",
+                      "expression": "`avg_delay_seconds`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "line",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Line"
+                },
+                "y": {
+                  "fieldName": "avg_delay_seconds",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Seconds"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Rail average delay by line, seconds (last 7 days)"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 11,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "b_routes",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "worst_routes",
+                  "fields": [
+                    {
+                      "name": "on_time_pct",
+                      "expression": "`on_time_pct`"
+                    },
+                    {
+                      "name": "route",
+                      "expression": "`route`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "on_time_pct",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "On-time %"
+                },
+                "y": {
+                  "fieldName": "route",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Route"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Least punctual routes (on-time %, last 7 days)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 17,
+            "width": 3,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "b_stops",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "worst_stops",
+                  "fields": [
+                    {
+                      "name": "avg_delay_minutes",
+                      "expression": "`avg_delay_minutes`"
+                    },
+                    {
+                      "name": "stop_name",
+                      "expression": "`stop_name`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "avg_delay_minutes",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Minutes"
+                },
+                "y": {
+                  "fieldName": "stop_name",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Stop"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Stops with the longest average delay, minutes (last 7 days)"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 17,
+            "width": 3,
+            "height": 7
+          }
+        }
+      ]
+    }
+  ]
+}

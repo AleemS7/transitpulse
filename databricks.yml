@@ -4,7 +4,7 @@ bundle:
 include:
   - resources/*.yml
 
-# Only the pipeline code needs to reach the workspace.
+# Only the pipeline and API code needs to reach the workspace.
 sync:
   exclude:
     - collector
@@ -26,6 +26,13 @@ variables:
   gtfs_files_root:
     description: Volume where each GTFS schedule version is unpacked, one folder per table.
     default: /Volumes/${var.catalog}/${var.schema_prefix}bronze/gtfs_files
+  warehouse_id:
+    description: SQL warehouse the API queries.
+    lookup:
+      warehouse: Serverless Starter Warehouse
+  app_suffix:
+    description: Keeps the dev app's name apart from prod's (app names are workspace-wide).
+    default: ""
   realtime_start:
     description: Oldest landed realtime file a new table loads (yyyy-MM-ddTHH:mm:ss, UTC). Empty loads all.
     default: ""
@@ -37,6 +44,7 @@ targets:
     default: true
     variables:
       schema_prefix: dev_
+      app_suffix: -dev
       # dev only needs recent bus data, and the daily compute quota is shared with prod.
       realtime_start: "2026-11-13T00:00:00"
 

@@ -1,0 +1,70 @@
+resources:
+  apps:
+    transitpulse_api:
+      name: tp-api${var.app_suffix}
+      description: Read-only API over the transitpulse gold tables.
+      source_code_path: ../api
+      config:
+        command: ["uvicorn", "transitpulse_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+        env:
+          - name: TP_BACKEND
+            value: databricks
+          - name: TP_WAREHOUSE_ID
+            value_from: sql-warehouse
+          - name: TP_CATALOG
+            value: ${var.catalog}
+          - name: TP_GOLD_SCHEMA
+            value: ${var.schema_prefix}gold
+          - name: TP_GENIE_SPACE_ID
+            value_from: genie-space
+      # The app's service principal can use the warehouse and Genie space, and read only the tables they need.
+      resources:
+        - name: sql-warehouse
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
+        - name: genie-space
+          genie_space:
+            name: TransitPulse ATL
+            space_id: ${resources.genie_spaces.transitpulse_genie.id}
+            permission: CAN_RUN
+        - name: dim-route
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog}.${var.schema_prefix}gold.dim_route
+            permission: SELECT
+        - name: dim-stop
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog}.${var.schema_prefix}gold.dim_stop
+            permission: SELECT
+        - name: otp-route-hour
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog}.${var.schema_prefix}gold.otp_route_hour
+            permission: SELECT
+        - name: stop-delay
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog}.${var.schema_prefix}gold.stop_delay
+            permission: SELECT
+        - name: rail-line-health
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog}.${var.schema_prefix}gold.rail_line_health
+            permission: SELECT
+        - name: ghost-trips
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog}.${var.schema_prefix}gold.ghost_trips
+            permission: SELECT
+        - name: daily-kpis
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog}.${var.schema_prefix}gold.daily_kpis
+            permission: SELECT
+        - name: fact-stop-arrival
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog}.${var.schema_prefix}gold.fact_stop_arrival
+            permission: SELECT
