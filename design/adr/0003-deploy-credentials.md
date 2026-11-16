@@ -20,6 +20,8 @@ Options 1 and 3. The `prod` environment accepts deployments only from `main`, an
 ## Consequences
 - No Azure secret exists anywhere. Moving the collector to another app means updating one role assignment.
 - The Databricks deploy token is the one long-lived CI secret. It's scoped to the `prod` environment, so pull-request workflows never see it. Its expiry is tracked along with the collector's token in `ops`.
+- The token also has API scopes, limited to what the bundle deploys: `workspace`, `files`, `jobs`, `pipelines`, `sql`, `dashboards`, `genie`, `apps`, `unity-catalog`, `bundle-deployments`. It lives 365 days. A leaked token can't touch identity, secrets or workspace settings.
+- A new resource type in the bundle can need a new scope. The first deploy of the dashboard, Genie space and app failed at validation (`does not have required scopes: sql`) until the token was reissued with the list above. The fix is a new token, never an unscoped one.
 - Without an approval gate, a merged PR goes live within minutes. Mistakes are fixed forward, or by reverting the merge, which triggers the same deploy.
 
 ## How I'd explain it in an interview
