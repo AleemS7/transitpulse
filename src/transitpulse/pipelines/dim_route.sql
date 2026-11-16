@@ -1,7 +1,19 @@
 -- Route dimension with history (SCD Type 2): a new row each time a route's details change between
 -- schedule versions. LAG spots the change; LEAD closes the previous row.
 
-CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.dim_route
+CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.dim_route (
+    route_sk BIGINT NOT NULL COMMENT 'Surrogate key for one version of a route. Primary key.',
+    route_id STRING COMMENT 'MARTA route ID from the GTFS schedule.',
+    route_short_name STRING COMMENT 'Route number riders see, e.g. 39.',
+    route_long_name STRING COMMENT 'Route name, e.g. Buford Highway.',
+    route_type INT COMMENT 'GTFS route type: 0 streetcar, 1 rail, 3 bus.',
+    transit_mode STRING COMMENT 'route_type as a word: bus, rail, streetcar or other.',
+    route_color STRING COMMENT 'Route color from the schedule, hex without #.',
+    valid_from DATE COMMENT 'First service day this version applies to.',
+    valid_to DATE COMMENT 'First service day of the next version; null while open.',
+    is_current BOOLEAN COMMENT 'True for the version in the latest schedule.',
+    CONSTRAINT dim_route_pk PRIMARY KEY (route_sk)
+)
 COMMENT 'One row per route per period its details stayed the same. route_sk is the surrogate key.'
 AS
 WITH per_version AS (

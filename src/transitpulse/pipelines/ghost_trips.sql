@@ -2,7 +2,27 @@
 -- 'cancelled' = MARTA's latest status for the trip was CANCELED.
 -- 'no_bus_seen' = no bus reported a position on the trip and no arrival was observed for it.
 
-CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.ghost_trips
+CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.ghost_trips (
+    date_key INT COMMENT 'Service day as yyyyMMdd; joins dim_date.',
+    route_sk BIGINT COMMENT 'Route version in effect that day; joins dim_route.',
+    service_date DATE NOT NULL
+    COMMENT 'MARTA service day (trips after midnight belong to the day they started).',
+    trip_id STRING NOT NULL COMMENT 'Scheduled GTFS trip ID.',
+    route_id STRING COMMENT 'GTFS route ID.',
+    route_short_name STRING COMMENT 'Route number riders see.',
+    direction_id INT COMMENT 'GTFS direction, 0 or 1.',
+    trip_headsign STRING COMMENT 'Destination shown on the bus.',
+    scheduled_start_local STRING
+    COMMENT 'Timetabled first departure, Atlanta time, HH:MM (after midnight it passes 24:00).',
+    reason STRING COMMENT 'cancelled (MARTA marked it CANCELED) or no_bus_seen (no position or arrival).',
+    CONSTRAINT ghost_trips_pk PRIMARY KEY (service_date, trip_id),
+    CONSTRAINT ghost_trips_dim_date_fk
+        FOREIGN KEY (date_key)
+        REFERENCES ${tp_catalog}.${tp_gold}.dim_date (date_key),
+    CONSTRAINT ghost_trips_dim_route_fk
+        FOREIGN KEY (route_sk)
+        REFERENCES ${tp_catalog}.${tp_gold}.dim_route (route_sk)
+)
 COMMENT 'Scheduled bus trips with no sign of running, per fully collected service day, with the reason.'
 AS
 WITH positions AS (

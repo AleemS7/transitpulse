@@ -1,7 +1,21 @@
 -- Rail reliability per service day, line, direction, station and Atlanta hour.
 -- delay_seconds is MARTA's DELAY field (seconds behind schedule; negative = early). See ADR-0002.
 
-CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.rail_line_health
+CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.rail_line_health (
+    service_date DATE NOT NULL
+    COMMENT 'MARTA service day (trips after midnight belong to the day they started).',
+    line STRING NOT NULL COMMENT 'Rail line: RED, GOLD, BLUE or GREEN.',
+    direction STRING NOT NULL COMMENT 'Direction of travel: N, S, E or W.',
+    station STRING NOT NULL COMMENT 'Station name as MARTA sends it.',
+    hour_local INT NOT NULL COMMENT 'Hour of day in Atlanta time, 0-23.',
+    predictions BIGINT COMMENT 'Arrival predictions collected.',
+    realtime_predictions BIGINT COMMENT 'Predictions based on a tracked train rather than the timetable.',
+    trains_seen BIGINT COMMENT 'Distinct trains predicted.',
+    avg_delay_seconds DOUBLE COMMENT 'Mean MARTA DELAY in seconds, rounded; negative means early (ADR-0002).',
+    p90_delay_seconds INT COMMENT '90th percentile delay in seconds.',
+    longest_wait_seconds INT COMMENT 'Longest predicted wait for a train, seconds.',
+    CONSTRAINT rail_line_health_pk PRIMARY KEY (service_date, line, direction, station, hour_local)
+)
 COMMENT 'Rail reliability by service day, line, direction, station and Atlanta hour.'
 AS
 WITH predictions AS (

@@ -9,6 +9,7 @@ sync:
   exclude:
     - collector
     - design/adr
+    - design/DESIGN.md
     - design/specs
     - infra
     - scripts

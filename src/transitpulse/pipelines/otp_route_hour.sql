@@ -1,7 +1,21 @@
 -- Bus on-time performance per service day, route and Atlanta hour (window in ADR-0006).
 -- on_time_pct counts only arrivals that have a scheduled time to compare with.
 
-CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.otp_route_hour
+CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.otp_route_hour (
+    service_date DATE NOT NULL
+    COMMENT 'MARTA service day (trips after midnight belong to the day they started).',
+    route_id STRING NOT NULL COMMENT 'GTFS route ID.',
+    route_short_name STRING COMMENT 'Route number riders see.',
+    hour_local INT NOT NULL COMMENT 'Hour of day in Atlanta time, 0-23.',
+    arrivals BIGINT COMMENT 'Observed arrivals.',
+    on_time BIGINT COMMENT 'Arrivals from 1 minute early to 5 minutes late.',
+    early BIGINT COMMENT 'Arrivals more than 1 minute early.',
+    late BIGINT COMMENT 'Arrivals more than 5 minutes late.',
+    on_time_pct DOUBLE COMMENT 'on_time as a percentage of arrivals with a scheduled time.',
+    avg_delay_seconds DOUBLE COMMENT 'Mean delay in seconds, rounded.',
+    p90_delay_seconds INT COMMENT '90th percentile delay in seconds.',
+    CONSTRAINT otp_route_hour_pk PRIMARY KEY (service_date, route_id, hour_local)
+)
 COMMENT 'Bus on-time performance by service day, route and Atlanta hour. On time = -1 to +5 minutes.'
 AS
 SELECT

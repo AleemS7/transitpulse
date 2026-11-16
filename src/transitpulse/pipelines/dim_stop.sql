@@ -1,6 +1,19 @@
 -- Stop dimension with history (SCD Type 2), built the same way as dim_route.
 
-CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.dim_stop
+CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.dim_stop (
+    stop_sk BIGINT NOT NULL COMMENT 'Surrogate key for one version of a stop. Primary key.',
+    stop_id STRING COMMENT 'MARTA stop ID from the GTFS schedule.',
+    stop_code STRING COMMENT 'Stop code shown at the stop.',
+    stop_name STRING COMMENT 'Stop name.',
+    stop_lat DOUBLE COMMENT 'Latitude, WGS84.',
+    stop_lon DOUBLE COMMENT 'Longitude, WGS84.',
+    location_type INT COMMENT 'GTFS location type: 0 stop or platform, 1 station.',
+    parent_station STRING COMMENT 'stop_id of the station this platform belongs to, if any.',
+    valid_from DATE COMMENT 'First service day this version applies to.',
+    valid_to DATE COMMENT 'First service day of the next version; null while open.',
+    is_current BOOLEAN COMMENT 'True for the version in the latest schedule.',
+    CONSTRAINT dim_stop_pk PRIMARY KEY (stop_sk)
+)
 COMMENT 'One row per stop per period its details stayed the same. stop_sk is the surrogate key.'
 AS
 WITH per_version AS (

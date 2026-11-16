@@ -1,7 +1,20 @@
 -- Calendar dimension: one row per date, so weekday, weekend and holiday questions are plain columns.
 -- is_schedule_exception marks dates where MARTA's schedule overrides the normal pattern (usually holidays).
 
-CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.dim_date
+CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.dim_date (
+    date_key INT NOT NULL COMMENT 'Calendar date as yyyyMMdd. Primary key.',
+    calendar_date DATE COMMENT 'The calendar date.',
+    calendar_year INT COMMENT 'Year, e.g. 2026.',
+    calendar_month INT COMMENT 'Month number, 1-12.',
+    month_name STRING COMMENT 'Month name, e.g. November.',
+    day_of_month INT COMMENT 'Day of the month, 1-31.',
+    day_of_week INT COMMENT '1 = Monday through 7 = Sunday.',
+    day_name STRING COMMENT 'Weekday name, e.g. Monday.',
+    is_weekend BOOLEAN COMMENT 'True on Saturday and Sunday.',
+    is_schedule_exception BOOLEAN
+    COMMENT 'True when MARTA runs a special schedule that day, usually a holiday.',
+    CONSTRAINT dim_date_pk PRIMARY KEY (date_key)
+)
 COMMENT 'One row per calendar date, 2026-2027. date_key is yyyyMMdd.'
 AS
 WITH days AS (
