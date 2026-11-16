@@ -1,5 +1,6 @@
-"""Read access to the gold tables. The API depends on the Repository protocol; SqlRepository runs SQL on a
-Databricks SQL warehouse, and tests use FakeRepository so they never touch the network.
+"""Read access to the gold tables, plus ops.incidents (read and acknowledge). The API depends on the
+Repository protocol; SqlRepository runs SQL on a Databricks SQL warehouse, and tests use FakeRepository so
+they never touch the network.
 """
 
 from __future__ import annotations
@@ -22,10 +23,23 @@ class Repository(Protocol):
     def rail_line_health(self, line: str, service_date: date | None) -> list[Row]: ...
     def ghost_trips(self, service_date: date, route_id: str | None, limit: int, offset: int) -> list[Row]: ...
     def daily_kpis(self, start: date, end: date) -> list[Row]: ...
+    def incidents(self, status: str | None, limit: int, offset: int) -> list[Row]: ...
+    def incident(self, incident_id: str) -> Row | None: ...
+    def acknowledge(self, incident_id: str, who: str) -> bool: ...
     def ping(self) -> None: ...
 
 
 Query = Callable[[str, dict[str, Any]], list[Row]]
+
+INCIDENT_SUMMARY = (
+    "incident_id, status, severity, symptom, cause_category, confidence, recommended_runbook,"
+    " recommended_step, classifier, opened_at, last_seen_at, occurrences, acknowledged_by, acknowledged_at,"
+    " cleared_at"
+)
+INCIDENT_DETAIL = (
+    f"{INCIDENT_SUMMARY}, evidence, tool_results, model_endpoint, model_version, rules_cause_category,"
+    " agent_error, agent_steps, prompt_tokens, completion_tokens, run_id, last_run_id"
+)
 
 
 class SqlRepository:
@@ -105,6 +119,32 @@ class SqlRepository:
             " ORDER BY service_date",
             {"start": start, "end": end},
         )
+
+    def incidents(self, status: str | None, limit: int, offset: int) -> list[Row]:
+        return self._query(
+            f"SELECT {INCIDENT_SUMMARY} FROM {self._s.table('incidents', self._s.ops_schema)}"
+            " WHERE (:status IS NULL OR status = :status)"
+            " ORDER BY opened_at DESC, incident_id LIMIT :limit OFFSET :offset",
+            {"status": status, "limit": limit, "offset": offset},
+        )
+
+    def incident(self, incident_id: str) -> Row | None:
+        rows = self._query(
+            f"SELECT {INCIDENT_DETAIL} FROM {self._s.table('incidents', self._s.ops_schema)}"
+            " WHERE incident_id = :id",
+            {"id": incident_id},
+        )
+        return rows[0] if rows else None
+
+    def acknowledge(self, incident_id: str, who: str) -> bool:
+        # The status condition makes a second acknowledgement a no-op, even if two arrive at once.
+        rows = self._query(
+            f"UPDATE {self._s.table('incidents', self._s.ops_schema)}"
+            " SET status = 'acknowledged', acknowledged_by = :who, acknowledged_at = current_timestamp(),"
+            " _updated_at = current_timestamp() WHERE incident_id = :id AND status = 'proposed'",
+            {"id": incident_id, "who": who},
+        )
+        return bool(rows) and int(rows[0].get("num_affected_rows", 0)) > 0
 
     def ping(self) -> None:
         self._query("SELECT 1 AS ok", {})

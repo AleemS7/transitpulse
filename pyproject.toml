@@ -7,10 +7,12 @@ dependencies = []
 
 [dependency-groups]
 dev = [
+    "databricks-sdk>=0.60",
     "gtfs-realtime-bindings>=2,<3",
     "mypy",
     "pip-audit",
     "protobuf>=5.29,<6",
+    "pydantic>=2.10,<3",
     "pyspark>=4.0,<4.1",
     "pytest",
     "ruff",
@@ -42,4 +44,9 @@ files = ["src"]
 mypy_path = "src"
 # Pipeline entry points use the Databricks-only pyspark.pipelines API, which has no local stubs.
 exclude = ["src/transitpulse/pipelines/"]
+
+# MLflow is preinstalled where the evaluation job runs and isn't needed for local checks.
+[[tool.mypy.overrides]]
+module = ["mlflow", "mlflow.*"]
+ignore_missing_imports = true
 

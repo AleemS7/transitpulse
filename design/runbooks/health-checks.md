@@ -10,6 +10,16 @@ ORDER BY checked_at DESC
 LIMIT 20;
 ```
 
+## Start from the proposed incident
+The email's failing task is usually `triage`, and its error is the proposed incident: likely cause, who classified it (agent or rules), and the runbook step. The full record has the evidence and every tool result behind it:
+
+```
+GET /incidents?status=proposed
+GET /incidents/{id}
+```
+
+Treat it as a draft. Check the cited evidence, compare `cause_category` with `rules_cause_category`, then acknowledge it with `POST /incidents/{id}/ack`. If the cause was wrong, note it in the incident log below. That case is worth adding to `transitpulse.agent.cases`.
+
 ## Which component, by check
 
 | Check | What it means | First look |

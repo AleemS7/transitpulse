@@ -200,3 +200,87 @@ def test_ask_failures(
 ) -> None:
     resp = TestClient(create_app(repo, asker=asker)).post("/ask", json=payload)
     assert resp.status_code == status and resp.json()["error"]["code"] == code
+
+
+def _incident(incident_id: str, status: str, opened: datetime) -> dict[str, Any]:
+    return {
+        "incident_id": incident_id,
+        "status": status,
+        "severity": "medium",
+        "symptom": "MARTA's rail feed returns errors.",
+        "cause_category": "source_outage",
+        "opened_at": opened,
+        "acknowledged_by": None,
+        "acknowledged_at": None,
+        "evidence": json.dumps(
+            [{"source": "T1", "statement": "rail_arrivals: 11 runs failed with HTTP 500"}]
+        ),
+        "tool_results": json.dumps({"T1": {"tool": "get_collector_runs", "result": [{"runs": 11}]}}),
+    }
+
+
+@pytest.fixture
+def incidents(repo: FakeRepository) -> TestClient:
+    now = datetime(2026, 11, 16, 14, tzinfo=UTC)
+    repo.incident_rows = [
+        _incident("run1-aaaa", "acknowledged", now - timedelta(hours=5)),
+        _incident("run2-bbbb", "proposed", now),
+    ]
+    return TestClient(create_app(repo))
+
+
+def test_incidents_list_newest_first_and_filter_by_status(incidents: TestClient) -> None:
+    assert [r["incident_id"] for r in incidents.get("/incidents").json()["data"]] == [
+        "run2-bbbb",
+        "run1-aaaa",
+    ]
+    proposed = incidents.get("/incidents", params={"status": "proposed"}).json()
+    assert [r["incident_id"] for r in proposed["data"]] == ["run2-bbbb"]
+    assert proposed["meta"]["source"] == "workspace.ops.incidents"
+    assert incidents.get("/incidents", params={"status": "closed"}).status_code == 422
+
+
+def test_incident_detail_returns_evidence_and_the_tool_results_behind_it(incidents: TestClient) -> None:
+    data = incidents.get("/incidents/run2-bbbb").json()["data"]
+    assert data["evidence"][0]["source"] == "T1"
+    assert data["tool_results"]["T1"]["result"] == [{"runs": 11}]
+    assert incidents.get("/incidents/nope").json()["error"]["code"] == "incident_not_found"
+
+
+def test_acknowledge_records_who_and_happens_once(incidents: TestClient) -> None:
+    who = {"x-forwarded-email": "oncall@example.com"}
+    resp = incidents.post("/incidents/run2-bbbb/ack", headers=who)
+    assert resp.status_code == 200
+    assert resp.json()["data"]["status"] == "acknowledged"
+    assert resp.json()["data"]["acknowledged_by"] == "oncall@example.com"
+    again = incidents.post("/incidents/run2-bbbb/ack", headers=who)
+    assert again.status_code == 409 and "oncall@example.com" in again.json()["error"]["message"]
+
+
+@pytest.mark.parametrize(
+    ("incident_id", "headers", "status", "code"),
+    [
+        ("run2-bbbb", {}, 401, "user_unknown"),
+        ("nope", {"x-forwarded-email": "a@example.com"}, 404, "incident_not_found"),
+        ("run1-aaaa", {"x-forwarded-email": "a@example.com"}, 409, "already_acknowledged"),
+    ],
+)
+def test_acknowledge_failures(
+    incidents: TestClient, incident_id: str, headers: dict[str, str], status: int, code: str
+) -> None:
+    resp = incidents.post(f"/incidents/{incident_id}/ack", headers=headers)
+    assert resp.status_code == status and resp.json()["error"]["code"] == code
+
+
+def test_acknowledge_sql_only_moves_proposed_incidents() -> None:
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    def record(sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        calls.append((sql, params))
+        return [{"num_affected_rows": 0}]
+
+    repo = SqlRepository(Settings(ops_schema="dev_ops"), record)
+    assert repo.acknowledge("x' --", "a@example.com") is False
+    sql, params = calls[0]
+    assert "`workspace`.`dev_ops`.`incidents`" in sql and "status = 'proposed'" in sql
+    assert params == {"id": "x' --", "who": "a@example.com"}

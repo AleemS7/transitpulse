@@ -1,0 +1,29 @@
+# The job creates its MLflow experiment by path on first use, so deploying needs no MLflow permission.
+resources:
+  jobs:
+    transitpulse_triage_eval:
+      name: transitpulse-triage-eval
+      description: Scores the triage agent against the rules on the labeled cases and logs the result to MLflow. Run on demand.
+      max_concurrent_runs: 1
+      timeout_seconds: 1800
+      environments:
+        - environment_key: eval
+          spec:
+            environment_version: "3"
+            dependencies:
+              - mlflow-skinny>=2.20,<4
+              - pydantic>=2.10,<3
+      tasks:
+        - task_key: evaluate
+          environment_key: eval
+          spark_python_task:
+            python_file: ../src/transitpulse/jobs/triage_eval.py
+            parameters:
+              - --src-root
+              - ${workspace.file_path}/src
+              - --runbooks
+              - ${workspace.file_path}/design/runbooks
+              - --model
+              - ${var.triage_model}
+              - --experiment
+              - /Users/${workspace.current_user.userName}/transitpulse-triage-eval${var.app_suffix}

@@ -1,4 +1,4 @@
-"""Read-only API over the gold tables.
+"""API over the gold tables. The one write is a person acknowledging a proposed incident.
 
 Every success is {"data": ..., "meta": {...}}; every error is {"error": {"code", "message"}} with a matching
 HTTP status. List endpoints page with limit/offset and return next_offset (null on the last page).
@@ -6,13 +6,14 @@ HTTP status. List endpoints page with limit/offset and return next_offset (null 
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime, timedelta
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
-from fastapi import FastAPI, Query, Request, Response
+from fastapi import FastAPI, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -35,6 +36,14 @@ Offset = Annotated[int, Query(ge=0)]
 
 class Question(BaseModel):
     question: str = Field(min_length=3, max_length=500)
+
+
+IncidentStatus = Literal["proposed", "acknowledged"]
+
+
+def _incident_out(row: Row) -> Row:
+    """evidence and tool_results are stored as JSON text; the API returns them as JSON."""
+    return {k: json.loads(v) if k in ("evidence", "tool_results") and v else v for k, v in row.items()}
 
 
 class ApiError(Exception):
@@ -171,6 +180,43 @@ def create_app(repo: Repository, settings: Settings | None = None, asker: Asker 
     def daily_kpis(start: date | None = None, end: date | None = None) -> dict[str, Any]:
         first, last = _date_range(start, end)
         return _page(repo.daily_kpis(first, last), source("daily_kpis"))
+
+    def incidents_source() -> str:
+        return f"{settings.catalog}.{settings.ops_schema}.incidents"
+
+    @app.get("/incidents")
+    def incidents(
+        status: IncidentStatus | None = None, limit: Limit = 50, offset: Offset = 0
+    ) -> dict[str, Any]:
+        return _page(repo.incidents(status, limit, offset), incidents_source(), limit, offset)
+
+    @app.get("/incidents/{incident_id}")
+    def incident(incident_id: str) -> dict[str, Any]:
+        row = repo.incident(incident_id)
+        if row is None:
+            raise ApiError(404, "incident_not_found", f"no incident {incident_id!r}")
+        return {"data": _incident_out(row), "meta": {"source": incidents_source()}}
+
+    @app.post("/incidents/{incident_id}/ack")
+    def acknowledge(
+        incident_id: str, who: Annotated[str | None, Header(alias="x-forwarded-email")] = None
+    ) -> dict[str, Any]:
+        # Databricks Apps sets this header from the signed-in user; without it nobody can be recorded.
+        if not who:
+            raise ApiError(401, "user_unknown", "acknowledging needs a signed-in user")
+        row = repo.incident(incident_id)
+        if row is None:
+            raise ApiError(404, "incident_not_found", f"no incident {incident_id!r}")
+        if row["status"] != "proposed" or not repo.acknowledge(incident_id, who):
+            current = repo.incident(incident_id) or row
+            raise ApiError(
+                409,
+                "already_acknowledged",
+                f"acknowledged by {current.get('acknowledged_by')} at {current.get('acknowledged_at')}",
+            )
+        updated = repo.incident(incident_id) or row
+        log.info("incident %s acknowledged by %s", incident_id, who)
+        return {"data": _incident_out(updated), "meta": {"source": incidents_source()}}
 
     @app.post("/ask")
     def ask(body: Question) -> dict[str, Any]:
