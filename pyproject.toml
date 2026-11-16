@@ -16,6 +16,7 @@ dev = [
     "ruff",
     "sqlfluff",
     "types-protobuf>=7.35.1.20260906",
+    "tzdata>=2026.6",
 ]
 
 [tool.uv]
