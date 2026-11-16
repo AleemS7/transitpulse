@@ -32,3 +32,9 @@ def local_to_utc(local: Column) -> Column:
 
 def service_date(local: Column) -> Column:
     return F.to_date(local - F.expr(f"INTERVAL {SERVICE_DAY_START_HOURS} HOURS"))
+
+
+def epoch_to_local(epoch: Column) -> Column:
+    """Unix seconds -> TIMESTAMP_NTZ holding Atlanta wall-clock time, whatever the session time zone."""
+    utc_wall_clock = F.lit("1970-01-01 00:00:00").cast("timestamp_ntz") + F.make_dt_interval(secs=epoch)
+    return F.convert_timezone(F.lit("UTC"), F.lit(ATLANTA_TZ), utc_wall_clock)

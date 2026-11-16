@@ -19,13 +19,15 @@ resources:
         tp_ops: ${var.schema_prefix}ops
         tp_landing_root: ${var.landing_root}
         tp_gtfs_files_root: ${var.gtfs_files_root}
+        tp_realtime_start: ${var.realtime_start}
 
   jobs:
     transitpulse_refresh:
       name: transitpulse-refresh
       description: Refreshes the medallion pipeline from newly landed files. Paused automatically in dev.
       max_concurrent_runs: 1
-      timeout_seconds: 3600
+      # An hourly refresh takes a few minutes; the headroom is for a first load of the collected history.
+      timeout_seconds: 7200
       schedule:
         quartz_cron_expression: "0 15 * * * ?"
         timezone_id: UTC
