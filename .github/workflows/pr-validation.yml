@@ -27,6 +27,7 @@ jobs:
           cache-dependency-glob: |
             uv.lock
             collector/uv.lock
+            api/uv.lock
 
       - name: Set up Java 17 (local Spark)
         uses: actions/setup-java@v6

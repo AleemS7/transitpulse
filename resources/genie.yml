@@ -1,0 +1,236 @@
+resources:
+  genie_spaces:
+    transitpulse_genie:
+      title: TransitPulse ATL
+      description: Ask about Atlanta bus and rail reliability (uses MARTA open data).
+      warehouse_id: ${var.warehouse_id}
+      # Inline (not a file) so table names follow the target's schema.
+      serialized_space: |
+        {
+          "version": 2,
+          "config": {
+            "sample_questions": [
+              {
+                "id": "a0000000000000000000000000000001",
+                "question": [
+                  "How punctual were buses yesterday?"
+                ]
+              },
+              {
+                "id": "a0000000000000000000000000000002",
+                "question": [
+                  "Which bus routes were least on time this week?"
+                ]
+              },
+              {
+                "id": "a0000000000000000000000000000003",
+                "question": [
+                  "How many trips were cancelled last Friday?"
+                ]
+              },
+              {
+                "id": "a0000000000000000000000000000004",
+                "question": [
+                  "Which rail line had the longest delays this week?"
+                ]
+              },
+              {
+                "id": "a0000000000000000000000000000005",
+                "question": [
+                  "At what hour of the day are buses most often late?"
+                ]
+              }
+            ]
+          },
+          "data_sources": {
+            "tables": [
+              {
+                "identifier": "${var.catalog}.${var.schema_prefix}gold.daily_kpis",
+                "description": [
+                  "One row per fully collected service day: scheduled bus trips, ghost and cancelled trips, observed arrivals, bus on-time %, bus average delay, bunched %, rail average delay."
+                ]
+              },
+              {
+                "identifier": "${var.catalog}.${var.schema_prefix}gold.dim_route",
+                "description": [
+                  "Routes with history (SCD Type 2). route_id is MARTA's ID; route_short_name is the number riders know (e.g. 4, 110). Use is_current for today's details."
+                ]
+              },
+              {
+                "identifier": "${var.catalog}.${var.schema_prefix}gold.dim_stop",
+                "description": [
+                  "Stops with history (SCD Type 2): name and location."
+                ]
+              },
+              {
+                "identifier": "${var.catalog}.${var.schema_prefix}gold.fact_stop_arrival",
+                "description": [
+                  "One row per observed bus arrival at a stop (trip x stop x service day). delay_seconds = actual minus scheduled; arrival_status is early, on_time or late."
+                ]
+              },
+              {
+                "identifier": "${var.catalog}.${var.schema_prefix}gold.ghost_trips",
+                "description": [
+                  "Scheduled bus trips that MARTA cancelled (reason = cancelled) or that never appeared in realtime data (reason = no_bus_seen), per fully collected service day."
+                ]
+              },
+              {
+                "identifier": "${var.catalog}.${var.schema_prefix}gold.otp_route_hour",
+                "description": [
+                  "Bus on-time performance per service day, route and Atlanta hour: arrivals, on_time, early, late, on_time_pct, average and 90th-percentile delay."
+                ]
+              },
+              {
+                "identifier": "${var.catalog}.${var.schema_prefix}gold.rail_line_health",
+                "description": [
+                  "Rail predictions per service day, line (RED, GOLD, BLUE, GREEN), direction, station and Atlanta hour, with average and 90th-percentile delay in seconds."
+                ]
+              },
+              {
+                "identifier": "${var.catalog}.${var.schema_prefix}gold.stop_delay",
+                "description": [
+                  "Bus delay per service day and stop: arrivals, average and 90th-percentile delay seconds, late percentage."
+                ]
+              }
+            ]
+          },
+          "instructions": {
+            "text_instructions": [
+              {
+                "id": "b0000000000000000000000000000001",
+                "content": [
+                  "Data is MARTA's live bus and rail feeds (uses MARTA open data), collected every 2 minutes.\n",
+                  "A bus is on time when it arrives no more than 1 minute early and no more than 5 minutes late. Percentages divide by arrivals that have a scheduled time (on_time + early + late).\n",
+                  "Times are stored in UTC; hour_local is the Atlanta hour. A service day runs past midnight, so use service_date for days.\n",
+                  "Ghost trips: reason 'cancelled' means MARTA marked the trip CANCELED; 'no_bus_seen' means it never appeared in realtime data, which can also mean an untracked bus. Report the two separately.\n",
+                  "'Yesterday' or 'latest day' means the latest service_date in daily_kpis, because the current day is still in progress.\n",
+                  "Routes are named by route_short_name (e.g. route 4), not route_id.\n"
+                ]
+              }
+            ],
+            "example_question_sqls": [
+              {
+                "id": "c0000000000000000000000000000001",
+                "question": [
+                  "What was the bus on-time percentage on the latest day?"
+                ],
+                "sql": [
+                  "SELECT service_date, bus_on_time_pct FROM ${var.catalog}.${var.schema_prefix}gold.daily_kpis ORDER BY service_date DESC LIMIT 1"
+                ]
+              },
+              {
+                "id": "c0000000000000000000000000000002",
+                "question": [
+                  "Which 10 routes had the lowest on-time percentage over the last 7 days?"
+                ],
+                "sql": [
+                  "SELECT route_short_name, ROUND(100 * SUM(on_time) / NULLIF(SUM(on_time + early + late), 0), 1) AS on_time_pct, SUM(arrivals) AS arrivals FROM ${var.catalog}.${var.schema_prefix}gold.otp_route_hour WHERE service_date >= DATE_SUB((SELECT MAX(service_date) FROM ${var.catalog}.${var.schema_prefix}gold.otp_route_hour), 6) GROUP BY route_short_name HAVING SUM(arrivals) >= 500 ORDER BY on_time_pct LIMIT 10"
+                ]
+              },
+              {
+                "id": "c0000000000000000000000000000003",
+                "question": [
+                  "How many ghost trips were there each day, split by reason?"
+                ],
+                "sql": [
+                  "SELECT service_date, reason, COUNT(*) AS trips FROM ${var.catalog}.${var.schema_prefix}gold.ghost_trips GROUP BY service_date, reason ORDER BY service_date, reason"
+                ]
+              },
+              {
+                "id": "c0000000000000000000000000000004",
+                "question": [
+                  "Which routes had the most cancelled trips on the latest day?"
+                ],
+                "sql": [
+                  "SELECT route_short_name, COUNT(*) AS cancelled_trips FROM ${var.catalog}.${var.schema_prefix}gold.ghost_trips WHERE reason = 'cancelled' AND service_date = (SELECT MAX(service_date) FROM ${var.catalog}.${var.schema_prefix}gold.ghost_trips) GROUP BY route_short_name ORDER BY cancelled_trips DESC LIMIT 10"
+                ]
+              },
+              {
+                "id": "c0000000000000000000000000000005",
+                "question": [
+                  "What is the bus on-time percentage by hour of day over the last 7 days?"
+                ],
+                "sql": [
+                  "SELECT hour_local, ROUND(100 * SUM(on_time) / NULLIF(SUM(on_time + early + late), 0), 1) AS on_time_pct FROM ${var.catalog}.${var.schema_prefix}gold.otp_route_hour WHERE service_date >= DATE_SUB((SELECT MAX(service_date) FROM ${var.catalog}.${var.schema_prefix}gold.otp_route_hour), 6) GROUP BY hour_local ORDER BY hour_local"
+                ]
+              },
+              {
+                "id": "c0000000000000000000000000000006",
+                "question": [
+                  "Which stops had the longest average bus delay over the last 7 days?"
+                ],
+                "sql": [
+                  "SELECT stop_name, ROUND(SUM(avg_delay_seconds * arrivals) / SUM(arrivals) / 60, 1) AS avg_delay_minutes, SUM(arrivals) AS arrivals FROM ${var.catalog}.${var.schema_prefix}gold.stop_delay WHERE service_date >= DATE_SUB((SELECT MAX(service_date) FROM ${var.catalog}.${var.schema_prefix}gold.stop_delay), 6) GROUP BY stop_name HAVING SUM(arrivals) >= 100 ORDER BY avg_delay_minutes DESC LIMIT 10"
+                ]
+              },
+              {
+                "id": "c0000000000000000000000000000007",
+                "question": [
+                  "What was the average rail delay by line over the last 7 days?"
+                ],
+                "sql": [
+                  "SELECT line, ROUND(SUM(avg_delay_seconds * realtime_predictions) / NULLIF(SUM(realtime_predictions), 0)) AS avg_delay_seconds FROM ${var.catalog}.${var.schema_prefix}gold.rail_line_health WHERE service_date >= DATE_SUB((SELECT MAX(service_date) FROM ${var.catalog}.${var.schema_prefix}gold.rail_line_health), 6) GROUP BY line ORDER BY avg_delay_seconds DESC"
+                ]
+              },
+              {
+                "id": "c0000000000000000000000000000008",
+                "question": [
+                  "How did route 4 perform each day?"
+                ],
+                "sql": [
+                  "SELECT service_date, ROUND(100 * SUM(on_time) / NULLIF(SUM(on_time + early + late), 0), 1) AS on_time_pct, SUM(arrivals) AS arrivals FROM ${var.catalog}.${var.schema_prefix}gold.otp_route_hour WHERE route_short_name = '4' GROUP BY service_date ORDER BY service_date"
+                ]
+              },
+              {
+                "id": "c0000000000000000000000000000009",
+                "question": [
+                  "Are weekends more punctual than weekdays?"
+                ],
+                "sql": [
+                  "SELECT CASE WHEN is_weekend THEN 'weekend' ELSE 'weekday' END AS day_type, ROUND(AVG(bus_on_time_pct), 1) AS avg_on_time_pct, COUNT(*) AS days FROM ${var.catalog}.${var.schema_prefix}gold.daily_kpis GROUP BY 1"
+                ]
+              },
+              {
+                "id": "c000000000000000000000000000000a",
+                "question": [
+                  "What share of bus arrivals were bunched each day?"
+                ],
+                "sql": [
+                  "SELECT service_date, bunched_pct FROM ${var.catalog}.${var.schema_prefix}gold.daily_kpis ORDER BY service_date"
+                ]
+              }
+            ],
+            "join_specs": [
+              {
+                "id": "d0000000000000000000000000000001",
+                "left": {
+                  "identifier": "${var.catalog}.${var.schema_prefix}gold.fact_stop_arrival",
+                  "alias": "fact_stop_arrival"
+                },
+                "right": {
+                  "identifier": "${var.catalog}.${var.schema_prefix}gold.dim_route",
+                  "alias": "dim_route"
+                },
+                "sql": [
+                  "`fact_stop_arrival`.`route_sk` = `dim_route`.`route_sk`",
+                  "--rt=FROM_RELATIONSHIP_TYPE_MANY_TO_ONE--"
+                ]
+              },
+              {
+                "id": "d0000000000000000000000000000002",
+                "left": {
+                  "identifier": "${var.catalog}.${var.schema_prefix}gold.fact_stop_arrival",
+                  "alias": "fact_stop_arrival"
+                },
+                "right": {
+                  "identifier": "${var.catalog}.${var.schema_prefix}gold.dim_stop",
+                  "alias": "dim_stop"
+                },
+                "sql": [
+                  "`fact_stop_arrival`.`stop_sk` = `dim_stop`.`stop_sk`",
+                  "--rt=FROM_RELATIONSHIP_TYPE_MANY_TO_ONE--"
+                ]
+              }
+            ]
+          }
+        }

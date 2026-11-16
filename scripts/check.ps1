@@ -58,6 +58,25 @@ finally {
     Pop-Location
 }
 
+Push-Location (Join-Path $root 'api')
+try {
+    Step 'api: sync (locked)' { uv sync --locked --quiet }
+    Step 'api: lint' { uv run ruff check . }
+    Step 'api: format' { uv run ruff format --check . }
+    Step 'api: types' { uv run mypy }
+    Step 'api: tests' { uv run pytest }
+    Step 'api: requirements.txt matches uv.lock' {
+        $expected = uv export --format requirements-txt --no-dev --no-hashes --no-emit-project --quiet |
+            Where-Object { $_ -notmatch '^#' }
+        $actual = Get-Content requirements.txt | Where-Object { $_ -notmatch '^#' }
+        if (Compare-Object $expected $actual) { throw 'requirements.txt is stale; run scripts/export-requirements.ps1' }
+    }
+    Step 'api: dependency audit' { uv run pip-audit --progress-spinner off }
+}
+finally {
+    Pop-Location
+}
+
 Step 'infra: bicep build' { az bicep build --file (Join-Path $root 'infra/collector.bicep') --stdout | Out-Null }
 if (-not $SkipBundle) {
     Step 'bundle: validate' {
