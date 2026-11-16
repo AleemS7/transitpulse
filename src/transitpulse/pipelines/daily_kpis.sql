@@ -1,6 +1,26 @@
 -- One row per fully collected service day: the headline bus and rail numbers for a dashboard.
 
-CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.daily_kpis
+CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.daily_kpis (
+    date_key INT COMMENT 'Service day as yyyyMMdd; joins dim_date.',
+    service_date DATE NOT NULL
+    COMMENT 'MARTA service day (trips after midnight belong to the day they started).',
+    day_name STRING COMMENT 'Weekday name.',
+    is_weekend BOOLEAN COMMENT 'True on Saturday and Sunday.',
+    is_schedule_exception BOOLEAN COMMENT 'True when MARTA ran a special schedule that day.',
+    scheduled_trips BIGINT COMMENT 'Bus trips in the timetable for the day.',
+    ghost_trips BIGINT COMMENT 'Scheduled trips with no sign of running (see ghost_trips).',
+    cancelled_trips BIGINT COMMENT 'Ghost trips MARTA marked CANCELED.',
+    ghost_trip_pct DOUBLE COMMENT 'ghost_trips as a percentage of scheduled_trips.',
+    observed_arrivals BIGINT COMMENT 'Observed bus stop arrivals.',
+    bus_on_time_pct DOUBLE COMMENT 'Bus arrivals on time (1 min early to 5 min late), percent.',
+    bus_avg_delay_seconds DOUBLE COMMENT 'Mean bus delay in seconds, rounded.',
+    bunched_pct DOUBLE COMMENT 'Bus arrivals that were bunched, percent.',
+    rail_avg_delay_seconds DOUBLE COMMENT 'Mean rail delay from MARTA realtime predictions, seconds.',
+    CONSTRAINT daily_kpis_pk PRIMARY KEY (service_date),
+    CONSTRAINT daily_kpis_dim_date_fk
+        FOREIGN KEY (date_key)
+        REFERENCES ${tp_catalog}.${tp_gold}.dim_date (date_key)
+)
 COMMENT 'Headline reliability numbers per fully collected service day (bus and rail).'
 AS
 WITH trips AS (

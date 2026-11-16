@@ -2,7 +2,23 @@
 -- and direction (LAG), next to the gap the timetable planned between those two trips.
 -- A bus is bunched when it arrives within a quarter of the planned gap behind the one before it.
 
-CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.headway_bunching
+CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.headway_bunching (
+    service_date DATE NOT NULL
+    COMMENT 'MARTA service day (trips after midnight belong to the day they started).',
+    route_id STRING COMMENT 'GTFS route ID.',
+    direction_id INT COMMENT 'GTFS direction, 0 or 1.',
+    stop_id STRING COMMENT 'GTFS stop ID.',
+    trip_id STRING NOT NULL COMMENT 'Trip of the arriving bus.',
+    stop_sequence INT NOT NULL
+    COMMENT 'Position of the stop on that trip; a loop route can visit a stop twice.',
+    previous_trip_id STRING COMMENT 'Trip of the bus before it at this stop, same route and direction.',
+    hour_local INT COMMENT 'Hour of day in Atlanta time, 0-23.',
+    arrival_ts TIMESTAMP COMMENT 'Observed arrival time, UTC.',
+    headway_seconds BIGINT COMMENT 'Actual gap behind the previous bus, seconds.',
+    scheduled_headway_seconds BIGINT COMMENT 'Timetabled gap between the same two trips, seconds.',
+    is_bunched BOOLEAN COMMENT 'True when the actual gap is under a quarter of the timetabled gap.',
+    CONSTRAINT headway_bunching_pk PRIMARY KEY (service_date, trip_id, stop_sequence)
+)
 COMMENT 'One row per bus arrival with the actual and scheduled gap to the previous bus at that stop.'
 AS
 WITH ordered AS (
@@ -12,6 +28,7 @@ WITH ordered AS (
         direction_id,
         stop_id,
         trip_id,
+        stop_sequence,
         hour_local,
         arrival_ts,
         scheduled_arrival_ts,
@@ -43,6 +60,7 @@ SELECT
     direction_id,
     stop_id,
     trip_id,
+    stop_sequence,
     previous_trip_id,
     hour_local,
     arrival_ts,

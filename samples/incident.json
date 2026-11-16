@@ -1,0 +1,159 @@
+{
+  "incident_id": "replay-drift-a2771f99",
+  "fingerprint": "a2771f995e151725",
+  "status": "proposed",
+  "opened_at": "2026-11-16T04:58:02.196Z",
+  "last_seen_at": "2026-11-16T04:58:02.196Z",
+  "occurrences": "1",
+  "run_id": "replay-drift",
+  "last_run_id": "replay-drift",
+  "severity": "medium",
+  "symptom": "Data quality issue with rail arrivals",
+  "cause_category": "schema_drift",
+  "confidence": "0.8",
+  "evidence": [
+    {
+      "source": "T0",
+      "statement": "0.0% of 4,120 rows passed the dq_pass_rate check"
+    },
+    {
+      "source": "T2",
+      "statement": "98.8% pass rate for near_schedule rule in bus_stop_arrivals_checked"
+    },
+    {
+      "source": "T3",
+      "statement": "92 failures in rail_arrivals feed over the last day"
+    },
+    {
+      "source": "T4",
+      "statement": "dq_pass_rate check failed once in the last 24 hours"
+    }
+  ],
+  "recommended_runbook": "health-checks.md",
+  "recommended_step": "Look at the quarantine table for that dataset: `SELECT EXPLODE(_failed_rules) AS rule, COUNT(*) FROM workspace.silver.<table>_quarantine WHERE _quarantined_at > current_timestamp() - INTERVAL 1 DAY GROUP BY 1`",
+  "tool_results": {
+    "T0": {
+      "id": "T0",
+      "tool": "trigger",
+      "args": {},
+      "result": [
+        {
+          "expected": ">= 95%",
+          "name": "dq_pass_rate",
+          "observed": "0.0% of 4,120 rows passed",
+          "subject": "rail_arrivals_checked.event_time_parsed"
+        }
+      ]
+    },
+    "T1": {
+      "id": "T1",
+      "tool": "search_runbooks",
+      "args": {
+        "query": "data quality issue with rail arrivals"
+      },
+      "result": [
+        {
+          "runbook": "health-checks.md",
+          "section": "Which component, by check",
+          "text": "`dq_pass_rate` | A quality rule rejected more than 5% of rows over the last day. | Look at the quarantine table for that dataset: `SELECT EXPLODE(_failed_rules) AS rule, COUNT(*) FROM workspace.silver.<table>_quarantine WHERE _quarantined_at > current_timestamp() - INTERVAL 1 DAY GROUP BY 1`. A new format from MARTA needs a parser fix and a test; a real data problem stays quarantined."
+        },
+        {
+          "runbook": "collector-failure.md",
+          "section": "Fix",
+          "text": "Rail `failed` with HTTP 401/403 | Rail key rejected | Register or renew the key, then `az keyvault secret set ... --name marta-rail-api-key`, then restart the app."
+        },
+        {
+          "runbook": "health-checks.md",
+          "section": "Runbook: a health check failed",
+          "text": "The hourly `transitpulse-refresh` job emails when any task fails. If the failed task is `health_checks`, the data refreshed but a check didn't pass. The task log lists every check with `OK` or `FAIL`. Results are also kept: ```sql SELECT checked_at, check_name, subject, observed, expected FROM workspace.ops.health_checks WHERE NOT ok ORDER BY checked_at DESC LIMIT 20; ```"
+        }
+      ]
+    },
+    "T2": {
+      "id": "T2",
+      "tool": "get_dq_failures",
+      "args": {
+        "hours": 24
+      },
+      "result": [
+        {
+          "dataset": "bus_stop_arrivals_checked",
+          "failed_records": 42938,
+          "pass_pct": 98.8,
+          "passed_records": 3544170,
+          "rule_name": "near_schedule"
+        }
+      ]
+    },
+    "T3": {
+      "id": "T3",
+      "tool": "get_feed_freshness",
+      "args": {},
+      "result": [
+        {
+          "failures_last_day": 92,
+          "feed": "rail_arrivals",
+          "minutes_since_attempt": 12,
+          "minutes_since_success": 12,
+          "runs_last_day": 720,
+          "snapshot_age_minutes": 0
+        },
+        {
+          "failures_last_day": 0,
+          "feed": "bus_trip_updates",
+          "minutes_since_attempt": 12,
+          "minutes_since_success": 12,
+          "runs_last_day": 720,
+          "snapshot_age_minutes": 0
+        },
+        {
+          "failures_last_day": 0,
+          "feed": "bus_vehicle_positions",
+          "minutes_since_attempt": 12,
+          "minutes_since_success": 12,
+          "runs_last_day": 720,
+          "snapshot_age_minutes": 0
+        }
+      ]
+    },
+    "T4": {
+      "id": "T4",
+      "tool": "get_check_history",
+      "args": {
+        "hours": 24
+      },
+      "result": [
+        {
+          "check_name": "dq_pass_rate",
+          "failed_runs": 1,
+          "first_failed_at": "2026-11-16 04:57:46.325268",
+          "last_failed_at": "2026-11-16 04:57:46.325268",
+          "latest_observed": "0.0% of 4,120 rows passed",
+          "runs": 3,
+          "subject": "rail_arrivals_checked.event_time_parsed"
+        },
+        {
+          "check_name": "feed_available",
+          "failed_runs": 2,
+          "first_failed_at": "2026-11-16 04:51:47.757739",
+          "last_failed_at": "2026-11-16 04:54:18.489263",
+          "latest_observed": "last success 24 min ago",
+          "runs": 4,
+          "subject": "rail_arrivals"
+        }
+      ]
+    }
+  },
+  "classifier": "agent",
+  "model_endpoint": "databricks-meta-llama-3-3-70b-instruct",
+  "model_version": "meta-llama-3.3-70b-instruct-121024",
+  "rules_cause_category": "schema_drift",
+  "agent_error": null,
+  "agent_steps": "5",
+  "prompt_tokens": "13662",
+  "completion_tokens": "293",
+  "acknowledged_by": null,
+  "acknowledged_at": null,
+  "cleared_at": null,
+  "_updated_at": "2026-11-16T04:58:02.196Z"
+}
