@@ -10,7 +10,7 @@ from pyspark.sql import Column, DataFrame, SparkSession
 from pyspark.sql.types import StructType
 
 from transitpulse.bus import transforms as bus
-from transitpulse.common.config import PipelineConfig
+from transitpulse.common.config import BRONZE_PROPERTIES, PipelineConfig
 from transitpulse.common.quality import Rules, passed, quarantined, with_failed_rules
 
 spark = SparkSession.active()
@@ -36,7 +36,7 @@ def define_bronze(
 ) -> str:
     name = cfg.table("bronze", feed)
 
-    @dp.table(name=name, comment=comment)
+    @dp.table(name=name, comment=comment, table_properties=BRONZE_PROPERTIES)
     def bronze() -> DataFrame:
         return bus.bronze(landed_files(feed, max_files_per_batch), decoder, entity)
 

@@ -16,6 +16,7 @@ How reliable is Atlanta transit, route by route and hour by hour? MARTA publishe
 | Bus: protobuf → positions, trip statuses, observed stop arrivals | Live, refreshed hourly |
 | Bus gold: `fact_stop_arrival`, on-time by route and hour, stop delay, bunching, ghost trips, daily KPIs | Live, refreshed hourly |
 | Ops: collector runs, feed freshness, data-quality metrics, hourly health checks with email | Live |
+| Landing retention: raw files deleted after 30 days once bronze holds them, bronze locked against full refresh | Built, reporting only until deletion is switched on |
 | AI/BI dashboard, Genie space, FastAPI on Databricks Apps | Live |
 | Incident triage: tool-calling agent with a rules fallback, incidents acknowledged through the API, MLflow evaluation | Built |
 

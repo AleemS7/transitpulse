@@ -6,6 +6,10 @@ from typing import Literal
 
 Layer = Literal["bronze", "silver", "gold", "ops"]
 
+# Landing files are deleted after 30 days (ops/retention.py), so a full refresh could no longer rebuild a
+# realtime bronze table; this property makes the pipeline refuse to reset one.
+BRONZE_PROPERTIES = {"pipelines.reset.allowed": "false"}
+
 # Keys set in the pipeline configuration (resources/transitpulse.yml). SQL files read the same keys as ${key}.
 KEYS = {
     "catalog": "tp_catalog",

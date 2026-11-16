@@ -37,7 +37,7 @@ Treat it as a draft. Check the cited evidence, compare `cause_category` with `ru
 
 Two known errors:
 - **`MEMORY_LIMIT_SERVERLESS`:** check that `max_files_per_batch` is still set for `bus_trip_updates` (`design/specs/bus.md`).
-- **Failure on `bus_trip_updates` after a change to the 25-file cap:** a stream replays an already-planned batch, so a new cap only applies after that bronze table is fully refreshed.
+- **Failure on `bus_trip_updates` after a change to the 25-file cap:** a stream replays an already-planned batch, so a new cap doesn't apply to it. Bronze can no longer be fully refreshed (`landing-retention.md`), so fix forward on dev and never remove that guard.
 
 ## Verify
 The next hourly run shows every check `OK` in the task log, and no new `NOT ok` rows appear in `ops.health_checks`.

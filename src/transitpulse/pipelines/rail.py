@@ -6,7 +6,7 @@ Logic lives in transitpulse.rail.transforms; this file only reads, wires and nam
 from pyspark import pipelines as dp
 from pyspark.sql import DataFrame, SparkSession
 
-from transitpulse.common.config import PipelineConfig
+from transitpulse.common.config import BRONZE_PROPERTIES, PipelineConfig
 from transitpulse.common.quality import passed, quarantined, with_failed_rules
 from transitpulse.rail import transforms as rail
 
@@ -18,7 +18,11 @@ SILVER = cfg.table("silver", "rail_arrivals")
 QUARANTINE = cfg.table("silver", "rail_arrivals_quarantine")
 
 
-@dp.table(name=BRONZE, comment="Rail predictions exactly as MARTA sent them, one row per record per file.")
+@dp.table(
+    name=BRONZE,
+    comment="Rail predictions exactly as MARTA sent them, one row per record per file.",
+    table_properties=BRONZE_PROPERTIES,
+)
 def rail_arrivals_bronze() -> DataFrame:
     raw = (
         spark.readStream.format("cloudFiles")
