@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 
 from transitpulse_api.repository import Row
 
@@ -17,6 +17,7 @@ class FakeRepository:
     rail_rows: list[Row] = field(default_factory=list)
     ghost_rows: list[Row] = field(default_factory=list)
     kpi_rows: list[Row] = field(default_factory=list)
+    incident_rows: list[Row] = field(default_factory=list)
     healthy: bool = True
 
     def routes(self, limit: int, offset: int) -> list[Row]:
@@ -53,6 +54,21 @@ class FakeRepository:
 
     def daily_kpis(self, start: date, end: date) -> list[Row]:
         return [r for r in self.kpi_rows if start <= r["service_date"] <= end]
+
+    def incidents(self, status: str | None, limit: int, offset: int) -> list[Row]:
+        rows = [r for r in self.incident_rows if status is None or r["status"] == status]
+        rows.sort(key=lambda r: (r["opened_at"], r["incident_id"]), reverse=True)
+        return rows[offset : offset + limit]
+
+    def incident(self, incident_id: str) -> Row | None:
+        return next((dict(r) for r in self.incident_rows if r["incident_id"] == incident_id), None)
+
+    def acknowledge(self, incident_id: str, who: str) -> bool:
+        for r in self.incident_rows:
+            if r["incident_id"] == incident_id and r["status"] == "proposed":
+                r |= {"status": "acknowledged", "acknowledged_by": who, "acknowledged_at": datetime.now(UTC)}
+                return True
+        return False
 
     def ping(self) -> None:
         if not self.healthy:

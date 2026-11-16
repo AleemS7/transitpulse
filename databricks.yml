@@ -4,11 +4,12 @@ bundle:
 include:
   - resources/*.yml
 
-# Only the pipeline and API code needs to reach the workspace.
+# Only the pipeline and API code, and the runbooks the triage step reads, need to reach the workspace.
 sync:
   exclude:
     - collector
-    - design
+    - design/adr
+    - design/specs
     - infra
     - scripts
     - tests
@@ -33,6 +34,9 @@ variables:
   app_suffix:
     description: Keeps the dev app's name apart from prod's (app names are workspace-wide).
     default: ""
+  triage_model:
+    description: Foundation Model endpoint the triage agent uses; empty means rules only.
+    default: databricks-meta-llama-3-3-70b-instruct
   realtime_start:
     description: Oldest landed realtime file a new table loads (yyyy-MM-ddTHH:mm:ss, UTC). Empty loads all.
     default: ""

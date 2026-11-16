@@ -2,7 +2,7 @@ resources:
   apps:
     transitpulse_api:
       name: tp-api${var.app_suffix}
-      description: Read-only API over the transitpulse gold tables.
+      description: API over the transitpulse gold tables, plus acknowledging proposed incidents.
       source_code_path: ../api
       config:
         command: ["uvicorn", "transitpulse_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -15,9 +15,12 @@ resources:
             value: ${var.catalog}
           - name: TP_GOLD_SCHEMA
             value: ${var.schema_prefix}gold
+          - name: TP_OPS_SCHEMA
+            value: ${var.schema_prefix}ops
           - name: TP_GENIE_SPACE_ID
             value_from: genie-space
-      # The app's service principal can use the warehouse and Genie space, and read only the tables they need.
+      # The app's service principal can use the warehouse and Genie space, and read only the tables it needs.
+      # Its access to ops.incidents is granted by the triage task, which creates that table.
       resources:
         - name: sql-warehouse
           sql_warehouse:

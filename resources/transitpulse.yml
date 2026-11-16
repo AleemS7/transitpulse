@@ -31,7 +31,7 @@ resources:
       name: transitpulse-refresh
       description: Refreshes the medallion pipeline from newly landed files. Paused automatically in dev.
       max_concurrent_runs: 1
-      # A failed task (including a failed health check) is the alert.
+      # A failed task is the alert; when a check failed, the triage task's error carries the proposed incident.
       email_notifications:
         on_failure:
           - ${workspace.current_user.userName}
@@ -67,6 +67,9 @@ resources:
           depends_on:
             - task_key: refresh_pipeline
           environment_key: default
+          # A failed check is a finding, not a transient error, so serverless shouldn't retry it.
+          max_retries: 0
+          disable_auto_optimization: true
           spark_python_task:
             python_file: ../src/transitpulse/jobs/health_checks.py
             parameters:
@@ -80,3 +83,30 @@ resources:
               - ${var.schema_prefix}ops
               - --run-id
               - "{{job.run_id}}"
+        - task_key: triage
+          depends_on:
+            - task_key: health_checks
+          # Also runs when the refresh or the checks failed; that's when it's needed.
+          run_if: ALL_DONE
+          environment_key: default
+          max_retries: 0
+          disable_auto_optimization: true
+          spark_python_task:
+            python_file: ../src/transitpulse/jobs/triage.py
+            parameters:
+              - --src-root
+              - ${workspace.file_path}/src
+              - --runbooks
+              - ${workspace.file_path}/design/runbooks
+              - --catalog
+              - ${var.catalog}
+              - --gold
+              - ${var.schema_prefix}gold
+              - --ops
+              - ${var.schema_prefix}ops
+              - --run-id
+              - "{{job.run_id}}"
+              - --model
+              - ${var.triage_model}
+              - --app-name
+              - ${resources.apps.transitpulse_api.name}
