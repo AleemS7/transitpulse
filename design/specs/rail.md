@@ -5,7 +5,7 @@ Rail reliability per line, direction, station and hour, built from the rail arri
 
 ## Users and systems
 - **Inputs:** `landing/rail_arrivals/dt=*/*.json.gz` (collector spec R-003).
-- **Outputs:** `bronze.rail_arrivals`, `silver.rail_arrivals`, `silver.rail_arrivals_quarantine`, `gold.rail_line_health`.
+- **Outputs:** `bronze.rail_arrivals`, `silver.rail_arrivals`, `silver.rail_arrivals_quarantine`, `gold.rail_line_health`, `gold.fact_rail_arrival`.
 - **Runs in:** the `transitpulse` Lakeflow pipeline, triggered hourly by the `transitpulse-refresh` job (paused in dev).
 
 ## Requirements
@@ -54,6 +54,14 @@ THE SYSTEM SHALL maintain `gold.rail_line_health`, one row per `service_date × 
 - `p90_delay_seconds`
 - `longest_wait_seconds`
 
+### R-006: Rail arrival fact (MODEL-003)
+THE SYSTEM SHALL maintain `gold.fact_rail_arrival`, one row per pass: one train coming into one station in one direction (ADR-0011).
+- A pass is a run of realtime predictions for one `service_date × train_id × line × direction × station` with no gap over 20 minutes.
+- The pass's last prediction gives `arrival_ts`, `last_wait_seconds` and `delay_seconds`.
+- WHEN the last prediction was at most 120 s from arrival THE SYSTEM SHALL mark the pass `observed` and set `arrival_status` (early, on_time, late; ADR-0006). Otherwise `arrival_status` is NULL.
+- `date_key`, `route_sk` (by line) and `stop_sk` (by timetable station name, with a lookup for the six stations the feed names differently) join the shared dimensions.
+- `gold.daily_kpis` reports `rail_arrivals` (observed passes) and `rail_on_time_pct` per day.
+
 ## Constraints and assumptions
 - **Unparseable input:** Spark 4 runs in ANSI mode, so unparseable text must use `try_` functions (it becomes NULL, then gets quarantined) instead of failing the pipeline.
 - **Empty overnight files:** files from roughly 02:00–04:30 Atlanta time hold an empty list because no trains run, so they add no rows.
@@ -73,6 +81,10 @@ THE SYSTEM SHALL maintain `gold.rail_line_health`, one row per `service_date × 
   - 248 files → 80,073 bronze rows → 80,073 silver rows, 0 quarantined → 1,071 gold rows
   - no arrival earlier than its event
   - a full update took about 1 minute
+- **V-003:** fact_rail_arrival on dev, 2026-11-17, over all collected rail data (2026-10-14 to 11-16):
+  - 328,075 passes; 0 duplicate primary keys; every row has a date, route and stop key, and none points at a missing `dim_stop` row
+  - 89.6% observed; 88.3% of observed arrivals on time
+  - unit tests in `tests/unit/test_rail_gold.py` cover a returning train, a duplicated snapshot, an unobserved pass and a renamed station
 
 ## Approval
 - Not ⚠; built under the slice rules.

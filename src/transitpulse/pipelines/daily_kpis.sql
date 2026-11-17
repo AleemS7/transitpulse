@@ -16,6 +16,8 @@ CREATE OR REFRESH MATERIALIZED VIEW ${tp_catalog}.${tp_gold}.daily_kpis (
     bus_avg_delay_seconds DOUBLE COMMENT 'Mean bus delay in seconds, rounded.',
     bunched_pct DOUBLE COMMENT 'Bus arrivals that were bunched, percent.',
     rail_avg_delay_seconds DOUBLE COMMENT 'Mean rail delay from MARTA realtime predictions, seconds.',
+    rail_arrivals BIGINT COMMENT 'Observed rail arrivals (see fact_rail_arrival).',
+    rail_on_time_pct DOUBLE COMMENT 'Observed rail arrivals on time (1 min early to 5 min late), percent.',
     CONSTRAINT daily_kpis_pk PRIMARY KEY (service_date),
     CONSTRAINT daily_kpis_dim_date_fk
         FOREIGN KEY (date_key)
@@ -66,6 +68,16 @@ rail AS (
     FROM ${tp_catalog}.${tp_silver}.rail_arrivals
     WHERE is_realtime
     GROUP BY service_date
+),
+
+rail_arrivals AS (
+    SELECT
+        service_date,
+        COUNT_IF(observed) AS rail_arrivals,
+        ROUND(TRY_DIVIDE(100 * COUNT_IF(arrival_status = 'on_time'), COUNT(arrival_status)), 1)
+            AS rail_on_time_pct
+    FROM ${tp_catalog}.${tp_gold}.fact_rail_arrival
+    GROUP BY service_date
 )
 
 SELECT
@@ -82,7 +94,9 @@ SELECT
     a.bus_on_time_pct,
     a.bus_avg_delay_seconds,
     b.bunched_pct,
-    r.rail_avg_delay_seconds
+    r.rail_avg_delay_seconds,
+    COALESCE(ra.rail_arrivals, 0) AS rail_arrivals,
+    ra.rail_on_time_pct
 FROM trips AS t
 INNER JOIN ${tp_catalog}.${tp_gold}.dim_date AS d
     ON t.service_date = d.calendar_date
@@ -94,3 +108,5 @@ LEFT JOIN bunching AS b
     ON t.service_date = b.service_date
 LEFT JOIN rail AS r
     ON t.service_date = r.service_date
+LEFT JOIN rail_arrivals AS ra
+    ON t.service_date = ra.service_date

@@ -53,13 +53,16 @@ flowchart LR
 
 ## Data model (gold)
 
-One fact table at the grain of a single observed bus arrival, three dimensions around it, and metric tables built from the fact.
+Two fact tables, one per mode: a single observed bus arrival, and a single train passing a station. Three shared dimensions sit around them, and metric tables are built from the facts.
 
 ```mermaid
 erDiagram
     dim_date ||--o{ fact_stop_arrival : "date_key"
     dim_route ||--o{ fact_stop_arrival : "route_sk"
     dim_stop ||--o{ fact_stop_arrival : "stop_sk"
+    dim_date ||--o{ fact_rail_arrival : "date_key"
+    dim_route ||--o{ fact_rail_arrival : "route_sk"
+    dim_stop ||--o{ fact_rail_arrival : "stop_sk"
     dim_date ||--o{ ghost_trips : "date_key"
     dim_route ||--o{ ghost_trips : "route_sk"
     dim_date ||--o{ daily_kpis : "date_key"
@@ -74,6 +77,21 @@ erDiagram
         timestamp arrival_ts
         timestamp scheduled_arrival_ts
         int delay_seconds
+        string arrival_status
+    }
+    fact_rail_arrival {
+        date service_date PK
+        string train_id PK
+        string line PK
+        string direction PK
+        string station PK
+        timestamp first_seen_ts PK
+        int date_key FK
+        bigint route_sk FK
+        bigint stop_sk FK
+        timestamp arrival_ts
+        int delay_seconds
+        boolean observed
         string arrival_status
     }
     dim_date {
@@ -113,23 +131,26 @@ erDiagram
         double bus_on_time_pct
         double ghost_trip_pct
         double bunched_pct
+        double rail_on_time_pct
     }
 ```
 
 - **Dimensions keep history (SCD Type 2).** `dim_route` and `dim_stop` get a new row, with a new surrogate key, whenever a schedule version changes a route or stop. The fact joins the version that was in effect on its service day (ADR-0004).
 - **Keys are declared, not enforced.** Unity Catalog primary and foreign keys document the model for BI tools and Genie. The keys were checked against prod data before they were declared: every primary key is unique and not null, and no fact row points at a missing dimension row.
-- **On time** means at most 1 minute early and at most 5 minutes late (ADR-0006).
+- **On time** means at most 1 minute early and at most 5 minutes late (ADR-0006), for both modes.
+- **Rail arrivals are inferred.** The rail feed only has predictions, so each train's predictions for a station are split into passes at a 20-minute gap, and a pass's last prediction is the arrival when it was within 2 minutes (ADR-0011).
 
 | Gold table | Grain (primary key) | Built from |
 |---|---|---|
 | `fact_stop_arrival` | trip × service day × stop sequence | silver arrivals placed on the timetable in effect |
+| `fact_rail_arrival` | service day × train × line × direction × station × pass start | silver rail predictions, split into passes (ADR-0011) |
 | `dim_date` | calendar date | generated, with schedule exceptions |
 | `dim_route`, `dim_stop` | one version of a route or stop | schedule versions (SCD Type 2) |
 | `otp_route_hour` | service day × route × Atlanta hour | fact |
 | `stop_delay` | service day × stop | fact + `dim_stop` |
 | `headway_bunching` | service day × trip × stop sequence | fact, with `LAG` for the previous bus |
 | `ghost_trips` | service day × trip | timetable vs. positions and arrivals |
-| `daily_kpis` | service day | the tables above |
+| `daily_kpis` | service day | the tables above, including both facts |
 | `rail_line_health` | service day × line × direction × station × hour | silver rail predictions |
 
 ## Layers

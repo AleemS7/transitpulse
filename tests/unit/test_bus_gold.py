@@ -117,6 +117,12 @@ def network(spark: SparkSession) -> None:
         [(TUE, True, 60), (TUE, True, 120), (TUE, False, None)],
         "service_date date, is_realtime boolean, delay_seconds int",
     )
+    view(
+        spark,
+        "fact_rail_arrival",
+        [(TUE, True, "on_time"), (TUE, True, "late"), (TUE, True, "on_time"), (TUE, False, None)],
+        "service_date date, observed boolean, arrival_status string",
+    )
     for name in ("bus_scheduled_trips", "fact_stop_arrival", "ghost_trips", "headway_bunching"):
         sql.run(spark, f"{name}.sql").createOrReplaceTempView(name)
 
@@ -171,3 +177,4 @@ def test_daily_kpis_cover_only_fully_collected_days(spark: SparkSession) -> None
     assert (day.scheduled_trips, day.ghost_trips, day.cancelled_trips) == (5, 2, 1)
     assert day.ghost_trip_pct == 40.0 and day.observed_arrivals == 5
     assert day.bunched_pct == 100.0 and day.rail_avg_delay_seconds == 90
+    assert day.rail_arrivals == 3 and day.rail_on_time_pct == 66.7

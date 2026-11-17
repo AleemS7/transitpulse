@@ -8,7 +8,10 @@ $root = Split-Path -Parent $PSScriptRoot
 
 function Step($name, [scriptblock]$body) {
     Write-Host "==> $name" -ForegroundColor Cyan
+    $global:LASTEXITCODE = 0
     & $body
+    # Windows PowerShell 5.1 ignores PSNativeCommandUseErrorActionPreference, so a failing tool wouldn't stop it.
+    if ($LASTEXITCODE) { throw "$name failed (exit code $LASTEXITCODE)" }
 }
 
 # PySpark needs Java 17+; prefer an installed JDK 17 over an older java on PATH.

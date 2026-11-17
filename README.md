@@ -13,6 +13,7 @@ From 2026-10-15 to 2026-11-15 (32 service days, 4.76 million observed bus stop a
 - **On time:** 61.0% of bus arrivals were on time, meaning at most 1 minute early and at most 5 minutes late.
 - **Cancellations:** MARTA cancelled between 319 and 1,077 scheduled bus trips a day.
 - **Weakest routes:** among routes with over 20,000 observed arrivals, route 165 was the least punctual, on time for 33% of arrivals.
+- **Rail:** 88.2% of 284,326 observed train arrivals were on time over the same window, from 84.5% on the Red line to 94.4% on Green. Rail arrivals are inferred from MARTA's predictions (ADR-0011).
 - **Realtime coverage:** 11 of 81 bus routes never appear in MARTA's realtime feed. Trips with no realtime trace are reported separately as `no_bus_seen`, not counted as cancelled.
 
 ## How it works
@@ -35,7 +36,7 @@ The full diagram, the data model and the safety net at each hop are in [`design/
 | Piece | State |
 |---|---|
 | Collector (Azure Function → Databricks volume) | Live, collecting every 2 minutes since 2026-10-15 |
-| Rail: bronze → silver → `gold.rail_line_health` | Live, refreshed hourly |
+| Rail: bronze → silver → `gold.rail_line_health`, `gold.fact_rail_arrival` (arrivals inferred from train passes) | Live, refreshed hourly |
 | Schedule (GTFS, versioned) → `dim_date`, `dim_route`, `dim_stop` (SCD Type 2) | Live, refreshed hourly |
 | Bus: protobuf → positions, trip statuses, observed stop arrivals | Live, refreshed hourly |
 | Bus gold: `fact_stop_arrival`, on-time by route and hour, stop delay, bunching, ghost trips, daily KPIs | Live, refreshed hourly |
