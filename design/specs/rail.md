@@ -5,7 +5,7 @@ Rail reliability per line, direction, station and hour, built from the rail arri
 
 ## Users and systems
 - **Inputs:** `landing/rail_arrivals/dt=*/*.json.gz` (collector spec R-003).
-- **Outputs:** `bronze.rail_arrivals`, `silver.rail_arrivals`, `silver.rail_arrivals_quarantine`, `gold.rail_line_health`.
+- **Outputs:** `bronze.rail_arrivals`, `silver.rail_arrivals`, `silver.rail_arrivals_quarantine`, `gold.rail_line_health`, `gold.fact_rail_arrival`.
 - **Runs in:** the `transitpulse` Lakeflow pipeline, triggered hourly by the `transitpulse-refresh` job (paused in dev).
 
 ## Requirements
@@ -53,6 +53,14 @@ THE SYSTEM SHALL maintain `gold.rail_line_health`, one row per `service_date × 
 - `avg_delay_seconds`
 - `p90_delay_seconds`
 - `longest_wait_seconds`
+
+### R-006: Rail arrival fact (MODEL-003)
+THE SYSTEM SHALL maintain `gold.fact_rail_arrival`, one row per pass: one train coming into one station in one direction (ADR-0011).
+- A pass is a run of realtime predictions for one `service_date × train_id × line × direction × station` with no gap over 20 minutes.
+- The pass's last prediction gives `arrival_ts`, `last_wait_seconds` and `delay_seconds`.
+- WHEN the last prediction was at most 120 s from arrival THE SYSTEM SHALL mark the pass `observed` and set `arrival_status` (early, on_time, late; ADR-0006). Otherwise `arrival_status` is NULL.
+- `date_key`, `route_sk` (by line) and `stop_sk` (by timetable station name, with a lookup for the six stations the feed names differently) join the shared dimensions.
+- `gold.daily_kpis` reports `rail_arrivals` (observed passes) and `rail_on_time_pct` per day.
 
 ## Constraints and assumptions
 - **Unparseable input:** Spark 4 runs in ANSI mode, so unparseable text must use `try_` functions (it becomes NULL, then gets quarantined) instead of failing the pipeline.

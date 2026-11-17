@@ -35,7 +35,7 @@ The full diagram, the data model and the safety net at each hop are in [`design/
 | Piece | State |
 |---|---|
 | Collector (Azure Function → Databricks volume) | Live, collecting every 2 minutes since 2026-10-15 |
-| Rail: bronze → silver → `gold.rail_line_health` | Live, refreshed hourly |
+| Rail: bronze → silver → `gold.rail_line_health`, `gold.fact_rail_arrival` (arrivals inferred from train passes) | Live, refreshed hourly |
 | Schedule (GTFS, versioned) → `dim_date`, `dim_route`, `dim_stop` (SCD Type 2) | Live, refreshed hourly |
 | Bus: protobuf → positions, trip statuses, observed stop arrivals | Live, refreshed hourly |
 | Bus gold: `fact_stop_arrival`, on-time by route and hour, stop delay, bunching, ghost trips, daily KPIs | Live, refreshed hourly |
