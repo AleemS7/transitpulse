@@ -30,7 +30,7 @@ Option 3.
 
   That second branch covers empty snapshots without trusting a file that is still waiting in a batch.
 - **Decode failures:** a folder with a file that failed to decode is kept. For those files, bronze only has the error.
-- **Report first.** The job runs in `report` mode by default. Deletion needs `retention_mode: delete` in the prod target. Dev pins `report` because it shares the folder.
+- **Report first.** The job runs in `report` mode by default. Deletion needs `retention_mode: delete` in the prod target. Dev pins `report` because it shares the folder. Prod switched to `delete` once its first scheduled report matched the preview below.
 - **Pace:** at most the 3 oldest deletable days per run, so the first runs work through the backlog in small steps.
 - **Bronze can't be reset.** The realtime bronze tables carry `pipelines.reset.allowed = false`, so a full refresh can no longer wipe history that landing doesn't hold any more. Verified on dev: a full refresh that selected `dev_bronze.rail_arrivals` failed with "is not resettable" and the table kept all 7,686,335 rows.
 - **GTFS stays.** `gtfs_static` is never touched: one small zip per schedule version, and the hourly job re-reads it.

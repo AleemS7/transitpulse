@@ -42,7 +42,7 @@ The full diagram, the data model and the safety net at each hop are in [`design/
 | Bus gold: `fact_stop_arrival`, on-time by route and hour, stop delay, bunching, ghost trips, daily KPIs | Live, refreshed hourly |
 | Gold contract: declared columns, comments, primary and foreign keys, checked by tests | Built |
 | Ops: collector runs, feed freshness, data-quality metrics, hourly health checks with email | Live |
-| Landing retention: raw files deleted after 30 days once bronze holds them, bronze locked against full refresh | Built, reporting only until deletion is switched on |
+| Landing retention: raw files deleted after 30 days once bronze holds them, bronze locked against full refresh | Built |
 | AI/BI dashboard, Genie space, FastAPI on Databricks Apps | Live |
 | Incident triage: tool-calling agent with a rules fallback, incidents acknowledged through the API, MLflow evaluation | Built |
 
