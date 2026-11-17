@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TransitPulse incidents</title>
+  <link rel="stylesheet" href="incidents.css">
+  <script src="incidents.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>Incidents</h1>
+    <p>Proposed by the hourly triage step. A person reads the evidence and acknowledges.</p>
+  </header>
+  <main>
+    <section aria-labelledby="list-title">
+      <div class="toolbar">
+        <h2 id="list-title">Recent</h2>
+        <label>Status
+          <select id="status">
+            <option value="">All</option>
+            <option value="proposed">Proposed</option>
+            <option value="acknowledged">Acknowledged</option>
+          </select>
+        </label>
+      </div>
+      <p id="list-message" role="status"></p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Opened (UTC)</th>
+              <th scope="col">Severity</th>
+              <th scope="col">Symptom</th>
+              <th scope="col">Cause</th>
+              <th scope="col">Seen</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+    <section id="detail" aria-labelledby="detail-title" hidden>
+      <h2 id="detail-title"></h2>
+      <dl id="facts"></dl>
+      <h3>Recommended step</h3>
+      <p id="runbook"></p>
+      <pre id="step"></pre>
+      <h3>Evidence</h3>
+      <p class="hint">Each statement cites the tool result it came from.</p>
+      <ul id="evidence"></ul>
+      <details>
+        <summary>Tool results</summary>
+        <pre id="tools"></pre>
+      </details>
+      <div class="actions">
+        <button id="ack" type="button">Acknowledge</button>
+        <p id="ack-message" role="status"></p>
+      </div>
+    </section>
+  </main>
+  <footer>Uses MARTA open data.</footer>
+</body>
+</html>

@@ -51,6 +51,14 @@ A Genie failure or timeout returns an error, never a made-up answer.
 ### R-006: Published contract (API-004)
 `api/samples/openapi.json` is generated from the code; a test fails if they differ.
 
+### R-007: Incidents page (API-004)
+WHEN a signed-in person opens the app THE SYSTEM SHALL show `/ui/incidents.html`, built only on the JSON endpoints above:
+- the incidents list, filterable by status;
+- one incident's facts, recommended runbook step, evidence statements with the tool result each cites, and the raw tool results;
+- an Acknowledge button for a proposed incident, which shows the 409 message when someone got there first.
+
+Incident text comes from an LLM and from pipeline errors, so the page only ever sets it as text, never as HTML (a test checks the script). Its responses carry `Content-Security-Policy: default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'` and `X-Content-Type-Options: nosniff`.
+
 ## Constraints and assumptions
 - **Free Edition limits:** at most 3 apps, and app compute can stop after a day of runtime. The prod deploy redeploys and restarts the app, so the API is a demo endpoint, not a service with an SLA.
 - **Python 3.11:** Databricks Apps runs Python 3.11 ✱, so `api/` targets 3.11 while the pipeline targets 3.12.

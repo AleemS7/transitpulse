@@ -16,6 +16,8 @@ HTTP API over the gold tables, deployed as a Databricks App by the bundle (`reso
 | `GET /incidents/{id}` | one incident with its evidence and every tool result behind it |
 | `POST /incidents/{id}/ack` | marks a proposed incident acknowledged by the signed-in user (409 if already done) |
 
+Opening the app (`/`) shows the incidents page (`/ui/incidents.html`): the list, one incident's evidence with the tool results it cites, and an Acknowledge button that calls the endpoint above as the signed-in user. It is plain HTML and JavaScript on the same JSON endpoints, sets every value as text, and is served with a Content-Security-Policy that only allows its own files.
+
 Every success is `{"data": ..., "meta": {...}}`, and every error is `{"error": {"code", "message"}}`. Paged lists take `limit` (1–500) and `offset`, and return `meta.next_offset`, which is `null` on the last page. The interactive docs are at `/docs`, and the schema is in `samples/openapi.json`.
 
 Run it locally with in-memory data:
