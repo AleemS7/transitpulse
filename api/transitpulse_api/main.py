@@ -11,11 +11,13 @@ import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from fastapi import FastAPI, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -25,6 +27,15 @@ from transitpulse_api.repository import Repository, Row, SqlRepository, databric
 from transitpulse_api.settings import Settings
 
 log = logging.getLogger("transitpulse_api")
+
+STATIC = Path(__file__).parent / "static"
+# The page loads only its own files and talks only to this API, so nothing else may run or load in it.
+PAGE_HEADERS = {
+    "content-security-policy": (
+        "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+    ),
+    "x-content-type-options": "nosniff",
+}
 
 RAIL_LINES = ("RED", "GOLD", "BLUE", "GREEN")
 DEFAULT_DAYS = 7
@@ -97,6 +108,8 @@ def create_app(repo: Repository, settings: Settings | None = None, asker: Asker 
         rid = request.headers.get("x-request-id") or uuid.uuid4().hex[:12]
         response = await call_next(request)
         response.headers["x-request-id"] = rid
+        if request.url.path.startswith("/ui/"):
+            response.headers.update(PAGE_HEADERS)
         log.info("request=%s %s %s -> %s", rid, request.method, request.url.path, response.status_code)
         return response
 
@@ -120,6 +133,10 @@ def create_app(repo: Repository, settings: Settings | None = None, asker: Asker 
     async def unexpected(_: Request, exc: Exception) -> JSONResponse:
         log.exception("unhandled error")
         return _error(503, "upstream_unavailable", "the data warehouse could not answer; try again shortly")
+
+    @app.get("/", include_in_schema=False)
+    def home() -> RedirectResponse:
+        return RedirectResponse("ui/incidents.html")
 
     @app.get("/health")
     def health() -> dict[str, Any]:
@@ -244,6 +261,7 @@ def create_app(repo: Repository, settings: Settings | None = None, asker: Asker 
             },
         }
 
+    app.mount("/ui", StaticFiles(directory=STATIC), name="ui")
     return app
 
 

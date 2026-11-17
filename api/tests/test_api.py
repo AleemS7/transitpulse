@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -160,8 +161,6 @@ def test_bad_settings_fail_at_startup(env: dict[str, str]) -> None:
 
 
 def test_published_openapi_matches_the_code() -> None:
-    from pathlib import Path
-
     from transitpulse_api.main import app
 
     published = json.loads((Path(__file__).parents[1] / "samples" / "openapi.json").read_text())
@@ -284,3 +283,29 @@ def test_acknowledge_sql_only_moves_proposed_incidents() -> None:
     sql, params = calls[0]
     assert "`workspace`.`dev_ops`.`incidents`" in sql and "status = 'proposed'" in sql
     assert params == {"id": "x' --", "who": "a@example.com"}
+
+
+def test_home_opens_the_incidents_page(client: TestClient) -> None:
+    resp = client.get("/", follow_redirects=False)
+    assert resp.status_code == 307 and resp.headers["location"] == "ui/incidents.html"
+
+
+@pytest.mark.parametrize(("path", "kind"), [("incidents.html", "text/html"), ("incidents.js", "javascript")])
+def test_incidents_page_is_served_with_a_strict_policy(client: TestClient, path: str, kind: str) -> None:
+    resp = client.get(f"/ui/{path}")
+    assert resp.status_code == 200 and kind in resp.headers["content-type"]
+    assert resp.headers["content-security-policy"].startswith("default-src 'self'")
+    assert resp.headers["x-content-type-options"] == "nosniff"
+
+
+def test_incidents_page_never_renders_data_as_html() -> None:
+    static = Path(__file__).parents[1] / "transitpulse_api" / "static"
+    # Incident text comes from an LLM and from pipeline errors, so it must only ever be set as text.
+    script = (static / "incidents.js").read_text(encoding="utf-8")
+    assert "innerHTML" not in script and "insertAdjacentHTML" not in script
+    assert "<script>" not in (static / "incidents.html").read_text(encoding="utf-8")
+
+
+def test_unknown_page_file_is_a_json_404(client: TestClient) -> None:
+    resp = client.get("/ui/nope.html")
+    assert resp.status_code == 404 and resp.json()["error"]["code"] == "not_found"
