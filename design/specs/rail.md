@@ -81,6 +81,10 @@ THE SYSTEM SHALL maintain `gold.fact_rail_arrival`, one row per pass: one train 
   - 248 files → 80,073 bronze rows → 80,073 silver rows, 0 quarantined → 1,071 gold rows
   - no arrival earlier than its event
   - a full update took about 1 minute
+- **V-003:** fact_rail_arrival on dev, 2026-11-17, over all collected rail data (2026-10-14 to 11-16):
+  - 328,075 passes; 0 duplicate primary keys; every row has a date, route and stop key, and none points at a missing `dim_stop` row
+  - 89.6% observed; 88.3% of observed arrivals on time
+  - unit tests in `tests/unit/test_rail_gold.py` cover a returning train, a duplicated snapshot, an unobserved pass and a renamed station
 
 ## Approval
 - Not ⚠; built under the slice rules.

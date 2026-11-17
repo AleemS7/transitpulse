@@ -13,6 +13,7 @@ From 2026-10-15 to 2026-11-15 (32 service days, 4.76 million observed bus stop a
 - **On time:** 61.0% of bus arrivals were on time, meaning at most 1 minute early and at most 5 minutes late.
 - **Cancellations:** MARTA cancelled between 319 and 1,077 scheduled bus trips a day.
 - **Weakest routes:** among routes with over 20,000 observed arrivals, route 165 was the least punctual, on time for 33% of arrivals.
+- **Rail:** 88.2% of 284,326 observed train arrivals were on time over the same window, from 84.5% on the Red line to 94.4% on Green. Rail arrivals are inferred from MARTA's predictions (ADR-0011).
 - **Realtime coverage:** 11 of 81 bus routes never appear in MARTA's realtime feed. Trips with no realtime trace are reported separately as `no_bus_seen`, not counted as cancelled.
 
 ## How it works
